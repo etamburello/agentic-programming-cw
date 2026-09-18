@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>8-Puzzle BFS Visualizer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #0b1020;
+      --panel: rgba(20, 29, 53, 0.92);
+      --panel-light: #1d2948;
+      --text: #f4f7ff;
+      --muted: #aeb9d6;
+      --accent: #65d9b7;
+      --accent-dark: #163f3b;
+      --tile: #edf2ff;
+      --tile-text: #17213b;
+      --danger: #ff8e9e;
+      --shadow: 0 18px 45px rgba(0, 0, 0, 0.32);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 32px 18px;
+      display: grid;
+      place-items: center;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 15% 15%, #18365b 0, transparent 32%),
+        radial-gradient(circle at 85% 80%, #153f3a 0, transparent 30%),
+        var(--background);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(960px, 100%);
+    }
+
+    header {
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0 0 7px;
+      font-size: clamp(2rem, 5vw, 3.3rem);
+      letter-spacing: -0.04em;
+    }
+
+    header p,
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 1.15fr) minmax(280px, 0.85fr);
+      gap: 20px;
+    }
+
+    .panel {
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 22px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+    }
+
+    .board-wrap {
+      display: grid;
+      place-items: center;
+      min-height: 374px;
+    }
+
+    .board {
+      width: min(100%, 350px);
+      aspect-ratio: 1;
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      border-radius: 20px;
+      background: #080d19;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    }
+
+    .tile {
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      color: var(--tile-text);
+      background: var(--tile);
+      box-shadow: 0 7px 0 #b9c4dc, 0 12px 22px rgba(0, 0, 0, 0.24);
+      font-size: clamp(1.7rem, 7vw, 3rem);
+      font-weight: 800;
+      transition: transform 180ms ease, background 180ms ease;
+    }
+
+    .tile.moved {
+      color: #082b25;
+      background: var(--accent);
+      transform: scale(1.04);
+    }
+
+    .tile.blank {
+      color: transparent;
+      background: var(--panel-light);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.05);
+    }
+
+    .status {
+      min-height: 24px;
+      margin: 18px 0 4px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    button {
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: 11px;
+      color: var(--text);
+      background: var(--panel-light);
+      cursor: pointer;
+      font-weight: 700;
+      transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      filter: brightness(1.15);
+      transform: translateY(-1px);
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(101, 217, 183, 0.55);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.42;
+    }
+
+    .primary {
+      color: #062820;
+      background: var(--accent);
+    }
+
+    .speed-row {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: auto 1fr 72px;
+      align-items: center;
+      gap: 12px;
+      color: var(--muted);
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    .speed-value {
+      color: var(--text);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 1.1rem;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 58px);
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .input-grid input {
+      width: 58px;
+      height: 52px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: var(--text);
+      background: #0d1529;
+      text-align: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .solve-row {
+      display: flex;
+      gap: 9px;
+      margin: 16px 0 24px;
+    }
+
+    .solve-row button {
+      flex: 1;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat {
+      min-height: 83px;
+      padding: 13px;
+      border-radius: 13px;
+      background: rgba(7, 12, 25, 0.6);
+    }
+
+    .stat-label {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-value {
+      font-size: 1.35rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 760px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .controls button:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>8-Puzzle BFS Visualizer</h1>
+      <p>Breadth-first search finds the shortest sequence of legal tile moves.</p>
+    </header>
+
+    <div class="layout">
+      <section class="panel" aria-label="Puzzle visualization">
+        <div class="board-wrap">
+          <div id="board" class="board" aria-label="8-puzzle board"></div>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite">
+          Ready to search.
+        </p>
+
+        <div class="controls">
+          <button id="previousButton" type="button">Previous</button>
+          <button id="playButton" class="primary" type="button">Play</button>
+          <button id="pauseButton" type="button">Pause</button>
+          <button id="nextButton" type="button">Next</button>
+          <button id="resetButton" type="button">Reset</button>
+        </div>
+
+        <label class="speed-row" for="speed">
+          <span>Speed</span>
+          <input id="speed" type="range" min="100" max="1500" step="100" value="700">
+          <span id="speedValue" class="speed-value">0.7 sec</span>
+        </label>
+      </section>
+
+      <aside class="panel">
+        <h2>Initial configuration</h2>
+        <div id="inputGrid" class="input-grid" aria-label="Initial puzzle values"></div>
+        <p class="hint">Enter each number from 0 through 8 once. Zero is the blank.</p>
+
+        <div class="solve-row">
+          <button id="solveButton" class="primary" type="button">Solve with BFS</button>
+          <button id="exampleButton" type="button">Load example</button>
+        </div>
+
+        <h2>Search details</h2>
+        <div class="stats">
+          <div class="stat">
+            <span class="stat-label">Current step</span>
+            <span id="currentStep" class="stat-value">0 / —</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Tile moved</span>
+            <span id="tileMoved" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">Total moves</span>
+            <span id="totalMoves" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">States expanded</span>
+            <span id="statesExpanded" class="stat-value">—</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">States discovered</span>
+            <span id="statesDiscovered" class="stat-value">—</span>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    const EXAMPLE = [8, 7, 6, 5, 4, 3, 2, 1, 0];
+    const GOAL = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    const GOAL_KEY = GOAL.join("");
+
+    const board = document.getElementById("board");
+    const inputGrid = document.getElementById("inputGrid");
+    const status = document.getElementById("status");
+    const solveButton = document.getElementById("solveButton");
+    const exampleButton = document.getElementById("exampleButton");
+    const previousButton = document.getElementById("previousButton");
+    const playButton = document.getElementById("playButton");
+    const pauseButton = document.getElementById("pauseButton");
+    const nextButton = document.getElementById("nextButton");
+    const resetButton = document.getElementById("resetButton");
+    const speed = document.getElementById("speed");
+    const speedValue = document.getElementById("speedValue");
+    const currentStepElement = document.getElementById("currentStep");
+    const tileMovedElement = document.getElementById("tileMoved");
+    const totalMovesElement = document.getElementById("totalMoves");
+    const statesExpandedElement = document.getElementById("statesExpanded");
+    const statesDiscoveredElement = document.getElementById("statesDiscovered");
+
+    let solution = [];
+    let movedTiles = [];
+    let currentStep = 0;
+    let playTimer = null;
+    let solving = false;
+
+    function createInputs() {
+      EXAMPLE.forEach((value, index) => {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.max = "8";
+        input.value = value;
+        input.setAttribute("aria-label", `Row ${Math.floor(index / 3) + 1}, column ${index % 3 + 1}`);
+        inputGrid.appendChild(input);
+      });
+    }
+
+    function setInputs(values) {
+      [...inputGrid.querySelectorAll("input")].forEach((input, index) => {
+        input.value = values[index];
+      });
+    }
+
+    function readInputs() {
+      const inputs = [...inputGrid.querySelectorAll("input")];
+      const values = inputs.map((input) => Number(input.value));
+      const validValues = values.every(
+        (value) => Number.isInteger(value) && value >= 0 && value <= 8
+      );
+
+      if (!validValues || new Set(values).size !== 9) {
+        throw new Error("Use every number from 0 through 8 exactly once.");
+      }
+
+      return values;
+    }
+
+    function isSolvable(state) {
+      let inversions = 0;
+      const tiles = state.filter((tile) => tile !== 0);
+
+      for (let left = 0; left < tiles.length; left += 1) {
+        for (let right = left + 1; right < tiles.length; right += 1) {
+          if (tiles[left] > tiles[right]) {
+            inversions += 1;
+          }
+        }
+      }
+
+      return inversions % 2 === 0;
+    }
+
+    function neighbors(key) {
+      const state = key.split("").map(Number);
+      const blank = state.indexOf(0);
+      const row = Math.floor(blank / 3);
+      const column = blank % 3;
+      const result = [];
+      const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+
+      for (const [rowChange, columnChange] of directions) {
+        const newRow = row + rowChange;
+        const newColumn = column + columnChange;
+
+        if (newRow >= 0 && newRow < 3 && newColumn >= 0 && newColumn < 3) {
+          const tileIndex = newRow * 3 + newColumn;
+          const movedTile = state[tileIndex];
+          const nextState = [...state];
+          [nextState[blank], nextState[tileIndex]] = [
+            nextState[tileIndex],
+            nextState[blank]
+          ];
+          result.push({ key: nextState.join(""), movedTile });
+        }
+      }
+
+      return result;
+    }
+
+    function reconstructSolution(parents, moves, goalKey) {
+      const path = [];
+      const pathMoves = [];
+      let current = goalKey;
+
+      while (current !== null) {
+        path.push(current.split("").map(Number));
+        if (parents.get(current) !== null) {
+          pathMoves.push(moves.get(current));
+        }
+        current = parents.get(current);
+      }
+
+      path.reverse();
+      pathMoves.reverse();
+      return { path, pathMoves: [null, ...pathMoves] };
+    }
+
+    async function breadthFirstSearch(initial) {
+      const initialKey = initial.join("");
+      const queue = [initialKey];
+      let queueIndex = 0;
+      let statesExpanded = 0;
+      const discovered = new Set([initialKey]);
+      const parents = new Map([[initialKey, null]]);
+      const moves = new Map();
+
+      while (queueIndex < queue.length) {
+        const current = queue[queueIndex];
+        queueIndex += 1;
+        statesExpanded += 1;
+
+        if (current === GOAL_KEY) {
+          const result = reconstructSolution(parents, moves, current);
+          return {
+            ...result,
+            statesExpanded,
+            statesDiscovered: discovered.size
+          };
+        }
+
+        for (const next of neighbors(current)) {
+          if (!discovered.has(next.key)) {
+            discovered.add(next.key);
+            parents.set(next.key, current);
+            moves.set(next.key, next.movedTile);
+            queue.push(next.key);
+          }
+        }
+
+        // Yield periodically so the page remains responsive during a large search.
+        if (statesExpanded % 5000 === 0) {
+          status.textContent =
+            `Searching… ${statesExpanded.toLocaleString()} states expanded`;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+
+      return null;
+    }
+
+    function renderBoard(state, movedTile = null) {
+      board.replaceChildren();
+
+      state.forEach((value) => {
+        const tile = document.createElement("div");
+        tile.className = value === 0 ? "tile blank" : "tile";
+        if (value === movedTile) {
+          tile.classList.add("moved");
+        }
+        tile.textContent = value;
+        tile.setAttribute("aria-label", value === 0 ? "Blank" : `Tile ${value}`);
+        board.appendChild(tile);
+      });
+    }
+
+    function renderStep() {
+      if (solution.length === 0) {
+        updateControls();
+        return;
+      }
+
+      renderBoard(solution[currentStep], movedTiles[currentStep]);
+      currentStepElement.textContent = `${currentStep} / ${solution.length - 1}`;
+      tileMovedElement.textContent = movedTiles[currentStep] ?? "—";
+      status.className = "status";
+      status.textContent =
+        currentStep === solution.length - 1
+          ? "Goal reached!"
+          : currentStep === 0
+            ? "Solution ready."
+            : `Moved tile ${movedTiles[currentStep]}.`;
+      updateControls();
+    }
+
+    function updateControls() {
+      const hasSolution = solution.length > 0;
+      previousButton.disabled = solving || !hasSolution || currentStep === 0;
+      nextButton.disabled =
+        solving || !hasSolution || currentStep === solution.length - 1;
+      playButton.disabled =
+        solving || !hasSolution || currentStep === solution.length - 1 || playTimer !== null;
+      pauseButton.disabled = playTimer === null;
+      resetButton.disabled = solving || !hasSolution || currentStep === 0;
+      solveButton.disabled = solving;
+      exampleButton.disabled = solving;
+    }
+
+    function pause() {
+      if (playTimer !== null) {
+        clearTimeout(playTimer);
+        playTimer = null;
+      }
+      updateControls();
+    }
+
+    function scheduleNextStep() {
+      if (currentStep >= solution.length - 1) {
+        pause();
+        return;
+      }
+
+      playTimer = setTimeout(() => {
+        playTimer = null;
+        currentStep += 1;
+        renderStep();
+        scheduleNextStep();
+      }, Number(speed.value));
+      updateControls();
+    }
+
+    function play() {
+      if (solution.length === 0 || playTimer !== null) {
+        return;
+      }
+      scheduleNextStep();
+    }
+
+    async function solve() {
+      pause();
+      status.className = "status";
+
+      let initial;
+      try {
+        initial = readInputs();
+      } catch (error) {
+        status.className = "status error";
+        status.textContent = error.message;
+        return;
+      }
+
+      if (!isSolvable(initial)) {
+        solution = [];
+        movedTiles = [];
+        renderBoard(initial);
+        status.className = "status error";
+        status.textContent = "This configuration is not solvable.";
+        currentStepElement.textContent = "0 / —";
+        tileMovedElement.textContent = "—";
+        totalMovesElement.textContent = "—";
+        statesExpandedElement.textContent = "—";
+        statesDiscoveredElement.textContent = "—";
+        updateControls();
+        return;
+      }
+
+      solving = true;
+      solution = [];
+      movedTiles = [];
+      renderBoard(initial);
+      status.textContent = "Searching…";
+      updateControls();
+
+      // Let the searching message render before starting BFS.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const result = await breadthFirstSearch(initial);
+      solving = false;
+
+      if (result === null) {
+        status.className = "status error";
+        status.textContent = "No solution was found.";
+        updateControls();
+        return;
+      }
+
+      solution = result.path;
+      movedTiles = result.pathMoves;
+      currentStep = 0;
+      totalMovesElement.textContent = solution.length - 1;
+      statesExpandedElement.textContent = result.statesExpanded.toLocaleString();
+      statesDiscoveredElement.textContent = result.statesDiscovered.toLocaleString();
+      renderStep();
+    }
+
+    previousButton.addEventListener("click", () => {
+      pause();
+      currentStep -= 1;
+      renderStep();
+    });
+
+    nextButton.addEventListener("click", () => {
+      pause();
+      currentStep += 1;
+      renderStep();
+    });
+
+    playButton.addEventListener("click", play);
+    pauseButton.addEventListener("click", pause);
+
+    resetButton.addEventListener("click", () => {
+      pause();
+      currentStep = 0;
+      renderStep();
+    });
+
+    speed.addEventListener("input", () => {
+      speedValue.textContent = `${(Number(speed.value) / 1000).toFixed(1)} sec`;
+      if (playTimer !== null) {
+        pause();
+        play();
+      }
+    });
+
+    exampleButton.addEventListener("click", () => {
+      pause();
+      setInputs(EXAMPLE);
+      renderBoard(EXAMPLE);
+      status.className = "status";
+      status.textContent = "Example loaded. Select Solve with BFS.";
+    });
+
+    solveButton.addEventListener("click", solve);
+
+    createInputs();
+    renderBoard(EXAMPLE);
+    updateControls();
+  </script>
+</body>
+</html>

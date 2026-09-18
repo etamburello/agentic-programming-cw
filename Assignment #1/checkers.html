@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Recursive Checker Swaps</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --felt: #1b4a36;
+      --felt-dark: #123328;
+      --ink: #14130f;
+      --paper: #f4ead6;
+      --paper-dim: #e7dcc4;
+      --red: #c62828;
+      --red-deep: #7f1515;
+      --black: #1c1a17;
+      --gold: #d4a017;
+      --line: #cbbd9e;
+      --muted: #6d6454;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at top, #2a2418 0%, #12100c 55%, #0c0b09 100%);
+      font-family: "IBM Plex Sans", sans-serif;
+    }
+
+    .page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Fraunces, serif;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 700;
+      color: var(--paper);
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #c4b79a;
+      font-size: 0.95rem;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      color: #c4b79a;
+      font-size: 0.82rem;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .legend span {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .dot.red { background: radial-gradient(circle at 30% 30%, #ef6b6b, var(--red)); }
+    .dot.black { background: radial-gradient(circle at 30% 30%, #4a4540, var(--black)); }
+
+    .panel {
+      background: var(--paper);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    input[type="number"], input[type="range"] {
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    input[type="number"] {
+      width: 64px;
+      padding: 6px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fffdf7;
+    }
+
+    .controls button {
+      border: 0;
+      border-radius: 9px;
+      padding: 8px 14px;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .controls button.ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .controls button.is-playing {
+      box-shadow: inset 0 0 0 2px var(--gold);
+    }
+
+    .speed {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .speed-ms {
+      min-width: 4.6em;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1.4fr;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stat {
+      background: #fffdf7;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      min-height: 86px;
+    }
+
+    .stat .kicker {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .stat .value {
+      margin-top: 4px;
+      font-family: Fraunces, serif;
+      font-size: 1.7rem;
+      line-height: 1.15;
+    }
+
+    .stat .detail {
+      margin-top: 4px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      color: #5b5346;
+    }
+
+    .board-wrap {
+      background: linear-gradient(180deg, #246049 0%, var(--felt) 40%, var(--felt-dark) 100%);
+      border-radius: 16px;
+      padding: 18px 16px 12px;
+      box-shadow: inset 0 0 0 3px #0e2a1e, inset 0 0 40px rgba(0, 0, 0, 0.25);
+    }
+
+    .interval-bar {
+      position: relative;
+      height: 28px;
+      margin: 0 8px 6px;
+    }
+
+    .interval-mark {
+      position: absolute;
+      top: 0;
+      height: 22px;
+      border: 2px solid var(--gold);
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      opacity: 0;
+      transition: left 0.35s ease, width 0.35s ease, opacity 0.2s;
+    }
+
+    .interval-mark.on { opacity: 1; }
+
+    .interval-mark span {
+      position: absolute;
+      top: -1px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--gold);
+      color: #1a1404;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 500;
+      padding: 1px 8px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .track {
+      position: relative;
+      height: 84px;
+      margin: 0 8px;
+    }
+
+    .slot {
+      position: absolute;
+      top: 8px;
+      width: var(--slot);
+      height: 68px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .slot::before {
+      content: "";
+      width: 58%;
+      height: 58%;
+      margin-top: 14px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .piece {
+      position: absolute;
+      top: 10px;
+      width: calc(var(--slot) * 0.78);
+      height: calc(var(--slot) * 0.78);
+      max-width: 64px;
+      max-height: 64px;
+      border-radius: 50%;
+      transition: left 0.5s cubic-bezier(0.4, 0.1, 0.2, 1), top 0.5s cubic-bezier(0.4, 0.1, 0.2, 1);
+      z-index: 1;
+    }
+
+    .piece.swap-a { z-index: 3; }
+    .piece.swap-b { z-index: 2; }
+    .piece.flash {
+      outline: 3px solid var(--gold);
+      outline-offset: 2px;
+    }
+
+    .piece.red {
+      background:
+        radial-gradient(circle at 32% 28%, #f08a8a 0%, var(--red) 46%, var(--red-deep) 100%);
+      box-shadow:
+        inset 0 -6px 10px rgba(0, 0, 0, 0.35),
+        0 5px 0 var(--red-deep),
+        0 10px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .piece.black {
+      background:
+        radial-gradient(circle at 32% 28%, #5a554e 0%, var(--black) 52%, #090807 100%);
+      box-shadow:
+        inset 0 -6px 10px rgba(0, 0, 0, 0.55),
+        0 5px 0 #070605,
+        0 10px 16px rgba(0, 0, 0, 0.35);
+    }
+
+    .piece::after {
+      content: "";
+      position: absolute;
+      inset: 18%;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.16);
+    }
+
+    .indices {
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: var(--slot);
+      margin: 4px 8px 0;
+      color: #d9ecdf;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+      text-align: center;
+    }
+
+    .board-list {
+      margin: 10px 8px 2px;
+      text-align: center;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: clamp(0.85rem, 2.2vw, 1.15rem);
+      color: #f4ead6;
+      background: rgba(0, 0, 0, 0.28);
+      border-radius: 10px;
+      padding: 10px 12px;
+      letter-spacing: 0.02em;
+    }
+
+    .board-list .zero { color: #ffb4b0; }
+    .board-list .one { color: #e8e2d4; }
+
+    .below {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    h2 {
+      margin: 0 0 8px;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    pre {
+      margin: 0;
+      background: #1b1914;
+      color: #efe6d2;
+      border-radius: 12px;
+      padding: 14px 14px 14px 8px;
+      overflow: auto;
+      min-height: 280px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.78rem;
+      line-height: 1.55;
+    }
+
+    .code-line {
+      display: block;
+      padding: 0 8px 0 10px;
+      border-radius: 6px;
+    }
+
+    .code-line.active {
+      background: #3d3414;
+      box-shadow: inset 3px 0 0 var(--gold);
+    }
+
+    .log {
+      height: 280px;
+      overflow: auto;
+      background: #fffdf7;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.75rem;
+    }
+
+    .log table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .log th, .log td {
+      text-align: left;
+      padding: 6px 8px;
+      border-bottom: 1px solid #efe6d2;
+      white-space: nowrap;
+    }
+
+    .log th {
+      position: sticky;
+      top: 0;
+      background: var(--paper-dim);
+      font-size: 0.68rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .log tr.current td {
+      background: #f6e7b4;
+      font-weight: 500;
+    }
+
+    @media (max-width: 800px) {
+      header, .stats, .below { display: block; }
+      .stat { margin-bottom: 8px; }
+      .speed { margin-left: 0; }
+      .below > * { margin-top: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <p>Rearrange n red checkers followed by n black checkers into an alternating pattern using only adjacent swaps.</p>
+      </div>
+    </header>
+
+    <div class="panel">
+      <div class="controls">
+        <label for="nInput">n =</label>
+        <input id="nInput" type="number" min="1" max="8" value="3" />
+        <button id="startBtn" class="ghost" type="button">Start</button>
+        <button id="prevBtn" class="ghost" type="button">Previous</button>
+        <button id="playBtn" type="button">Play</button>
+        <button id="nextBtn" class="ghost" type="button">Next</button>
+        <button id="resetBtn" class="ghost" type="button">Reset</button>
+        <div class="speed">
+          <label for="speed">Speed</label>
+          <input id="speed" type="range" min="100" max="1200" step="50" value="400" />
+          <span class="speed-ms" id="speedMs">400 ms</span>
+        </div>
+      </div>
+
+      <div class="stats">
+        <article class="stat">
+          <div class="kicker">Current step</div>
+          <div class="value" id="stepValue">0 / 0</div>
+          <div class="detail" id="stepDetail">ready</div>
+        </article>
+        <article class="stat">
+          <div class="kicker">Total swaps</div>
+          <div class="value" id="swapValue">0</div>
+          <div class="detail" id="swapDetail">T(n) = n(n − 1) / 2</div>
+        </article>
+        <article class="stat">
+          <div class="kicker">Recursive interval</div>
+          <div class="value" id="intervalValue">[0 : 0)</div>
+          <div class="detail" id="intervalDetail">start = 0, n = 0</div>
+        </article>
+      </div>
+
+      <div class="board-wrap">
+        <div class="interval-bar">
+          <div class="interval-mark" id="intervalMark"><span id="intervalLabel"></span></div>
+        </div>
+        <div class="track" id="track"></div>
+        <div class="indices" id="indices"></div>
+        <div class="board-list" id="boardList">[0, 0, 0, 1, 1, 1]</div>
+      </div>
+
+      <div class="below">
+        <div>
+          <h2>Python function</h2>
+          <pre id="code"></pre>
+        </div>
+        <div>
+          <h2>Recorded steps</h2>
+          <div class="log" id="log">
+            <table>
+              <thead>
+                <tr>
+                  <th>Step</th>
+                  <th>Action</th>
+                  <th>Swaps</th>
+                  <th>Interval</th>
+                </tr>
+              </thead>
+              <tbody id="logBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CODE_LINES = [
+      "def alternate(board, start=0, n=None):",
+      "    if n is None:",
+      "        n = len(board) // 2",
+      "",
+      "    def rec(start, n):",
+      "        if n <= 1:",
+      "            return",
+      "        rec(start + 1, n - 1)",
+      "        i = start + 1",
+      "        last = start + 2 * n - 1",
+      "        while i < last:",
+      "            board[i], board[i + 1] = board[i + 1], board[i]",
+      "            i += 2",
+      "",
+      "    rec(start, n)",
+    ];
+
+    const codeEl = document.getElementById("code");
+    CODE_LINES.forEach((line, i) => {
+      const span = document.createElement("span");
+      span.className = "code-line";
+      span.dataset.line = String(i);
+      span.textContent = line || " ";
+      codeEl.appendChild(span);
+    });
+
+    const els = {
+      nInput: document.getElementById("nInput"),
+      startBtn: document.getElementById("startBtn"),
+      prevBtn: document.getElementById("prevBtn"),
+      playBtn: document.getElementById("playBtn"),
+      nextBtn: document.getElementById("nextBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      speed: document.getElementById("speed"),
+      speedMs: document.getElementById("speedMs"),
+      stepValue: document.getElementById("stepValue"),
+      stepDetail: document.getElementById("stepDetail"),
+      swapValue: document.getElementById("swapValue"),
+      swapDetail: document.getElementById("swapDetail"),
+      intervalValue: document.getElementById("intervalValue"),
+      intervalDetail: document.getElementById("intervalDetail"),
+      track: document.getElementById("track"),
+      indices: document.getElementById("indices"),
+      boardList: document.getElementById("boardList"),
+      intervalMark: document.getElementById("intervalMark"),
+      intervalLabel: document.getElementById("intervalLabel"),
+      logBody: document.getElementById("logBody"),
+      log: document.getElementById("log"),
+    };
+
+    let n = 3;
+    let events = [];
+    let totalSwaps = 0;
+    let cursor = 0;
+    let pieces = [];
+    let playing = false;
+    let busy = false;
+    let runId = 0;
+
+    function highlightCode(line) {
+      codeEl.querySelectorAll(".code-line").forEach((el) => {
+        el.classList.toggle("active", Number(el.dataset.line) === line);
+      });
+    }
+
+    function stepMs() {
+      return Number(els.speed.value);
+    }
+
+    function updateSpeedLabel() {
+      els.speedMs.textContent = `${stepMs()} ms`;
+    }
+
+    function swapDuration() {
+      return Math.min(500, Math.max(160, Math.round(stepMs() * 0.7)));
+    }
+
+    function applyPieceSpeed() {
+      const ms = swapDuration();
+      pieces.forEach((p) => {
+        p.el.style.transitionDuration = `${ms}ms`;
+      });
+      return ms;
+    }
+
+    function collectEvents(size) {
+      const board = Array(size).fill(0).concat(Array(size).fill(1));
+      const out = [];
+      let swaps = 0;
+
+      function rec(start, m) {
+        const interval = [start, start + 2 * m];
+        out.push({
+          type: "enter",
+          start,
+          n: m,
+          interval,
+          swaps,
+          board: board.slice(),
+          line: m <= 1 ? 5 : 7,
+          detail: m <= 1
+            ? `base case: n = 1, already alternating`
+            : `recurse into the middle 2(${m} − 1) checkers`,
+        });
+        if (m <= 1) {
+          out.push({
+            type: "return",
+            start,
+            n: m,
+            interval,
+            swaps,
+            board: board.slice(),
+            line: 6,
+            detail: `return from rec(start=${start}, n=${m})`,
+          });
+          return;
+        }
+        rec(start + 1, m - 1);
+        let i = start + 1;
+        const last = start + 2 * m - 1;
+        while (i < last) {
+          const tmp = board[i];
+          board[i] = board[i + 1];
+          board[i + 1] = tmp;
+          swaps += 1;
+          out.push({
+            type: "swap",
+            i,
+            start,
+            n: m,
+            interval,
+            swaps,
+            board: board.slice(),
+            line: 11,
+            detail: `swap adjacent positions ${i} and ${i + 1}`,
+          });
+          i += 2;
+        }
+        out.push({
+          type: "return",
+          start,
+          n: m,
+          interval,
+          swaps,
+          board: board.slice(),
+          line: 12,
+          detail: `return from rec(start=${start}, n=${m})`,
+        });
+      }
+
+      rec(0, size);
+      return { events: out, totalSwaps: swaps };
+    }
+
+    function slotWidth() {
+      const count = 2 * n;
+      return els.track.clientWidth / count;
+    }
+
+    function setIntervalMark(interval) {
+      const w = slotWidth();
+      if (!interval) {
+        els.intervalMark.classList.remove("on");
+        return;
+      }
+      const [lo, hi] = interval;
+      els.intervalMark.style.left = `${lo * w}px`;
+      els.intervalMark.style.width = `${(hi - lo) * w}px`;
+      els.intervalLabel.textContent = `[${lo} : ${hi})`;
+      els.intervalMark.classList.add("on");
+    }
+
+    function layoutPieces(arc = null) {
+      const w = slotWidth();
+      const pieceSize = Math.min(64, w * 0.78);
+      pieces.forEach((p) => {
+        p.el.style.width = `${pieceSize}px`;
+        p.el.style.height = `${pieceSize}px`;
+        const left = p.slot * w + (w - pieceSize) / 2;
+        let top = 10;
+        if (arc && p.slot === arc.up) top = -8;
+        if (arc && p.slot === arc.down) top = 28;
+        p.el.style.left = `${left}px`;
+        p.el.style.top = `${top}px`;
+      });
+    }
+
+    function renderBoard() {
+      const count = 2 * n;
+      els.track.style.setProperty("--slot", `${100 / count}%`);
+      els.track.innerHTML = "";
+      els.indices.innerHTML = "";
+      pieces = [];
+
+      for (let i = 0; i < count; i += 1) {
+        const slot = document.createElement("div");
+        slot.className = "slot";
+        slot.style.left = `${(100 / count) * i}%`;
+        slot.style.width = `${100 / count}%`;
+        els.track.appendChild(slot);
+
+        const idx = document.createElement("div");
+        idx.textContent = String(i);
+        els.indices.appendChild(idx);
+
+        const color = i < n ? "red" : "black";
+        const el = document.createElement("div");
+        el.className = `piece ${color}`;
+        els.track.appendChild(el);
+        pieces.push({ el, slot: i, color });
+      }
+      layoutPieces();
+      applyPieceSpeed();
+    }
+
+    function currentBoard() {
+      if (cursor <= 0) return Array(n).fill(0).concat(Array(n).fill(1));
+      return events[cursor - 1].board;
+    }
+
+    function renderList(arr) {
+      els.boardList.innerHTML = `[${arr.map((v) => (
+        `<span class="${v ? "one" : "zero"}">${v}</span>`
+      )).join(", ")}]`;
+    }
+
+    function readyEvent() {
+      return {
+        start: 0,
+        n,
+        interval: [0, 2 * n],
+        swaps: 0,
+        board: Array(n).fill(0).concat(Array(n).fill(1)),
+        detail: "ready — press Play or Next",
+        line: 14,
+      };
+    }
+
+    function highlightLog() {
+      const rows = [...els.logBody.querySelectorAll("tr")];
+      rows.forEach((row, i) => {
+        row.classList.toggle("current", i === cursor - 1);
+      });
+      const current = rows[cursor - 1];
+      if (current) current.scrollIntoView({ block: "nearest" });
+    }
+
+    function updateButtons() {
+      els.startBtn.disabled = cursor === 0 && !playing;
+      els.prevBtn.disabled = cursor === 0;
+      els.nextBtn.disabled = cursor >= events.length;
+      els.playBtn.disabled = cursor >= events.length && !playing;
+      els.playBtn.textContent = "Play";
+      els.playBtn.classList.toggle("is-playing", playing);
+    }
+
+    function updateStats(event, stepIndex) {
+      const swapCount = event ? event.swaps : 0;
+      const interval = event ? event.interval : [0, 2 * n];
+      const start = event ? event.start : 0;
+      const m = event ? event.n : n;
+      const board = event && event.board ? event.board : currentBoard();
+
+      els.stepValue.textContent = `${stepIndex} / ${events.length}`;
+      els.stepDetail.textContent = event ? event.detail : "ready — press Play or Next";
+      els.swapValue.textContent = String(swapCount);
+      els.swapDetail.textContent = stepIndex >= events.length && events.length > 0
+        ? `final total  ·  T(${n}) = ${n}×${n - 1}/2`
+        : "counting as adjacent swaps occur";
+      els.intervalValue.textContent = `[${interval[0]} : ${interval[1]})`;
+      els.intervalDetail.textContent = `start = ${start}, n = ${m}   ·   board[${interval[0]} : ${interval[1]}]`;
+      setIntervalMark(interval);
+      renderList(board);
+      updateButtons();
+      if (event) highlightCode(event.line);
+      else highlightCode(-1);
+    }
+
+    function recordRow(event, stepIndex) {
+      const tr = document.createElement("tr");
+      tr.dataset.step = String(stepIndex);
+      const interval = `[${event.interval[0]} : ${event.interval[1]})`;
+      const action = event.type === "swap"
+        ? `swap ${event.i} ↔ ${event.i + 1}`
+        : event.type === "enter"
+          ? `rec(start=${event.start}, n=${event.n})`
+          : `return n=${event.n}`;
+      tr.innerHTML = `
+        <td>${stepIndex}</td>
+        <td>${action}</td>
+        <td>${event.swaps}</td>
+        <td>${interval}</td>
+      `;
+      els.logBody.appendChild(tr);
+      highlightLog();
+    }
+
+    function wait(ms) {
+      return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function waitTransition(el) {
+      const ms = swapDuration() + 80;
+      return new Promise((resolve) => {
+        let settled = false;
+        const done = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+        el.addEventListener("transitionend", done, { once: true });
+        setTimeout(done, ms);
+      });
+    }
+
+    async function runSwap(i) {
+      const a = pieces.find((p) => p.slot === i);
+      const b = pieces.find((p) => p.slot === i + 1);
+      if (!a || !b) return;
+      a.el.classList.add("flash", "swap-a");
+      b.el.classList.add("flash", "swap-b");
+      a.slot = i + 1;
+      b.slot = i;
+      layoutPieces({ up: a.slot, down: b.slot });
+      await waitTransition(a.el);
+      layoutPieces();
+      a.el.classList.remove("flash", "swap-a");
+      b.el.classList.remove("flash", "swap-b");
+    }
+
+    async function runEvent(event, stepIndex, id) {
+      if (id !== runId) return;
+      updateStats(event, stepIndex);
+      recordRow(event, stepIndex);
+      if (event.type === "swap") {
+        await runSwap(event.i);
+        if (id === runId) renderList(event.board);
+      } else if (!playing) {
+        await wait(80);
+      }
+    }
+
+    async function stepOnce(id) {
+      if (busy || cursor >= events.length) return;
+      busy = true;
+      const event = events[cursor];
+      cursor += 1;
+      await runEvent(event, cursor, id);
+      if (id !== runId) return;
+      if (cursor >= events.length) {
+        els.stepDetail.textContent = "done — board is 0, 1, 0, 1, …";
+        highlightCode(-1);
+        playing = false;
+      }
+      busy = false;
+      updateButtons();
+    }
+
+    async function stepBack(id) {
+      if (busy || cursor <= 0) return;
+      busy = true;
+      playing = false;
+      const event = events[cursor - 1];
+      if (event.type === "swap") {
+        await runSwap(event.i);
+      }
+      if (id !== runId) return;
+      cursor -= 1;
+      const last = els.logBody.lastElementChild;
+      if (last) last.remove();
+      const shown = cursor === 0 ? readyEvent() : events[cursor - 1];
+      if (cursor === 0) {
+        shown.detail = "ready — press Play or Next";
+      }
+      updateStats(shown, cursor);
+      highlightLog();
+      busy = false;
+      updateButtons();
+    }
+
+    async function play() {
+      if (playing) return;
+      if (cursor >= events.length) return;
+      const id = runId;
+      playing = true;
+      updateButtons();
+      while (playing && id === runId && cursor < events.length) {
+        const t0 = performance.now();
+        await stepOnce(id);
+        if (!playing || id !== runId) break;
+        const leftover = stepMs() - (performance.now() - t0);
+        if (leftover > 0) await wait(leftover);
+      }
+      if (id === runId) {
+        playing = false;
+        updateButtons();
+      }
+    }
+
+    function pause() {
+      playing = false;
+      updateButtons();
+    }
+
+    function seekStart() {
+      runId += 1;
+      playing = false;
+      busy = false;
+      cursor = 0;
+      els.logBody.innerHTML = "";
+      renderBoard();
+      updateStats(readyEvent(), 0);
+    }
+
+    function rebuild() {
+      n = Math.max(1, Math.min(8, Number(els.nInput.value) || 1));
+      els.nInput.value = String(n);
+      const collected = collectEvents(n);
+      events = collected.events;
+      totalSwaps = collected.totalSwaps;
+      seekStart();
+    }
+
+    function resetToDefault() {
+      els.nInput.value = "3";
+      rebuild();
+    }
+
+    els.startBtn.addEventListener("click", () => seekStart());
+    els.prevBtn.addEventListener("click", () => {
+      pause();
+      stepBack(runId);
+    });
+    els.playBtn.addEventListener("click", () => {
+      if (playing) pause();
+      else play();
+    });
+    els.nextBtn.addEventListener("click", () => {
+      pause();
+      stepOnce(runId);
+    });
+    els.resetBtn.addEventListener("click", () => resetToDefault());
+    els.nInput.addEventListener("change", () => rebuild());
+    els.speed.addEventListener("input", () => {
+      updateSpeedLabel();
+      applyPieceSpeed();
+    });
+    window.addEventListener("resize", () => {
+      layoutPieces();
+      const event = cursor === 0 ? readyEvent() : events[cursor - 1];
+      setIntervalMark(event.interval);
+    });
+
+    updateSpeedLabel();
+    rebuild();
+  </script>
+</body>
+</html>

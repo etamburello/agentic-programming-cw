@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Two-Stack Expression Evaluator</title>
+  <style>
+    :root {
+      --bg: #eef1f6;
+      --card: #ffffff;
+      --ink: #1f2937;
+      --muted: #6b7280;
+      --line: #d8dee8;
+      --blue: #3b6ff5;
+      --blue-hover: #2f5de0;
+      --gray-btn: #eef1f6;
+      --well: #f3f5f9;
+      --green: #d8f3dc;
+      --green-ink: #1b7a3a;
+      --green-line: #8ed4a4;
+      --amber: #fff3d6;
+      --amber-ink: #9a6700;
+      --navy: #0f172a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      color: var(--ink);
+      background: var(--bg);
+    }
+
+    .page {
+      max-width: 1080px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.85rem;
+      font-weight: 700;
+    }
+
+    .sub {
+      margin: 6px 0 18px;
+      color: var(--muted);
+    }
+
+    #exprInput {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 1rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      background: #fff;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 12px 0 18px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--gray-btn);
+      color: var(--ink);
+    }
+
+    button.primary {
+      background: var(--blue);
+      color: #fff;
+    }
+
+    button.primary:hover { background: var(--blue-hover); }
+    button:disabled { opacity: 0.45; cursor: default; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 0.95rem;
+    }
+
+    .expr-box {
+      background: var(--well);
+      border-radius: 8px;
+      padding: 16px 12px;
+      min-height: 64px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 1.35rem;
+    }
+
+    .tok {
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+
+    .tok.current {
+      background: #dbe7ff;
+      outline: 2px solid var(--blue);
+    }
+
+    .tok.done { color: var(--muted); }
+
+    .status {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .stacks {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .stack h2 { text-align: left; }
+
+    .well {
+      background: var(--well);
+      border-radius: 8px;
+      min-height: 260px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column-reverse;
+      align-items: stretch;
+      gap: 8px;
+    }
+
+    .cell {
+      text-align: center;
+      padding: 10px;
+      border-radius: 6px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-weight: 600;
+      animation: pop 0.22s ease;
+    }
+
+    .cell.num {
+      background: var(--green);
+      color: var(--green-ink);
+      border: 1px solid var(--green-line);
+    }
+
+    .cell.op {
+      background: var(--amber);
+      color: var(--amber-ink);
+      border: 1px solid #f0d48a;
+    }
+
+    .op-box {
+      background: var(--navy);
+      color: #86efac;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      min-height: 56px;
+      display: flex;
+      align-items: center;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 1.05rem;
+    }
+
+    .result-value {
+      font-size: 1.7rem;
+      font-weight: 700;
+      min-height: 1.4em;
+    }
+
+    .rules {
+      margin: 0;
+      padding-left: 1.2rem;
+      color: #374151;
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+
+    .error { color: #b91c1c; }
+
+    @keyframes pop {
+      from { transform: translateY(8px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    @media (max-width: 800px) {
+      .layout, .stacks { display: block; }
+      .card, .stack { margin-bottom: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <h1>Two-Stack Expression Evaluator</h1>
+    <p class="sub">Supports +, -, *, /, parentheses, and unary + / -.</p>
+
+    <input id="exprInput" type="text" value="-2 - 1" spellcheck="false" />
+
+    <div class="controls">
+      <button class="primary" id="loadBtn" type="button">Load Expression</button>
+      <button id="prevBtn" type="button">← Previous</button>
+      <button class="primary" id="nextBtn" type="button">Next Step →</button>
+      <button id="playBtn" type="button">Play</button>
+      <button id="resetBtn" type="button">Reset</button>
+    </div>
+
+    <div class="layout">
+      <div>
+        <div class="card">
+          <h2>Expression</h2>
+          <div class="expr-box" id="exprBox"></div>
+          <p class="status" id="status">Load an expression to begin.</p>
+        </div>
+        <div class="stacks">
+          <div class="stack card">
+            <h2>Numbers Stack</h2>
+            <div class="well" id="numWell"></div>
+          </div>
+          <div class="stack card">
+            <h2>Operators Stack</h2>
+            <div class="well" id="opWell"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <h2>Current Operation</h2>
+          <div class="op-box" id="operation">—</div>
+        </div>
+        <div class="card" style="margin-top: 12px;">
+          <h2>Result</h2>
+          <div class="result-value" id="result">—</div>
+        </div>
+        <div class="card" style="margin-top: 12px;">
+          <h2>Rules</h2>
+          <ol class="rules">
+            <li>Push numbers onto the numbers stack.</li>
+            <li>Push <code>(</code> onto the operators stack.</li>
+            <li>If <code>+</code> or <code>-</code> appears where an operand is expected, treat it as a unary operator.</li>
+            <li>Unary <code>+</code> and unary <code>-</code> have higher precedence than <code>*</code> and <code>/</code>.</li>
+            <li>Before pushing a binary operator, apply operators of higher or equal precedence.</li>
+            <li>For <code>)</code>, apply operators until the matching <code>(</code> is reached.</li>
+            <li>At the end, apply all remaining operators.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const els = {
+      exprInput: document.getElementById("exprInput"),
+      loadBtn: document.getElementById("loadBtn"),
+      prevBtn: document.getElementById("prevBtn"),
+      nextBtn: document.getElementById("nextBtn"),
+      playBtn: document.getElementById("playBtn"),
+      resetBtn: document.getElementById("resetBtn"),
+      exprBox: document.getElementById("exprBox"),
+      status: document.getElementById("status"),
+      numWell: document.getElementById("numWell"),
+      opWell: document.getElementById("opWell"),
+      operation: document.getElementById("operation"),
+      result: document.getElementById("result"),
+    };
+
+    let events = [];
+    let cursor = 0;
+    let playing = false;
+    let timer = null;
+
+    function fmt(n) {
+      if (typeof n !== "number") return String(n);
+      if (Number.isInteger(n)) return String(n);
+      return String(n);
+    }
+
+    function precedence(operator) {
+      return { "+": 1, "-": 1, "*": 2, "/": 2, "u+": 3, "u-": 3 }[operator];
+    }
+
+    function tokenize(expression) {
+      const tokens = [];
+      let i = 0;
+      const n = expression.length;
+      while (i < n) {
+        const ch = expression[i];
+        if (/\s/.test(ch)) { i += 1; continue; }
+        if (/\d/.test(ch) || ch === ".") {
+          const start = i;
+          let dotted = ch === ".";
+          i += 1;
+          while (i < n && (/\d/.test(expression[i]) || (expression[i] === "." && !dotted))) {
+            if (expression[i] === ".") dotted = true;
+            i += 1;
+          }
+          const lexeme = expression.slice(start, i);
+          if (lexeme === ".") throw new Error("Invalid number.");
+          tokens.push(parseFloat(lexeme));
+          continue;
+        }
+        if ("+-*/()".includes(ch)) { tokens.push(ch); i += 1; continue; }
+        throw new Error("Unsupported character.");
+      }
+      return tokens;
+    }
+
+    function isUnary(tokens, index) {
+      if (tokens[index] !== "+" && tokens[index] !== "-") return false;
+      if (index === 0) return true;
+      const prev = tokens[index - 1];
+      if (typeof prev === "number") return false;
+      return "+-*/(".includes(prev);
+    }
+
+    function applyOperator(numbers, operators) {
+      const op = operators.pop();
+      if (op === "u-" || op === "u+") {
+        if (!numbers.length) throw new Error("Missing operand.");
+        const value = numbers.pop();
+        const result = op === "u-" ? -value : value;
+        numbers.push(result);
+        return {
+          text: op === "u-" ? `${fmt(result)} = -${fmt(value)}` : `${fmt(result)} = +${fmt(value)}`,
+        };
+      }
+      if (numbers.length < 2) throw new Error("Missing operand.");
+      const right = numbers.pop();
+      const left = numbers.pop();
+      let result;
+      if (op === "+") result = left + right;
+      else if (op === "-") result = left - right;
+      else if (op === "*") result = left * right;
+      else if (op === "/") {
+        if (right === 0) throw new Error("Division by zero.");
+        result = left / right;
+      } else throw new Error("Unknown operator.");
+      numbers.push(result);
+      return { text: `${fmt(left)} ${op} ${fmt(right)} = ${fmt(result)}` };
+    }
+
+    function collectEvents(expression) {
+      const tokens = tokenize(expression);
+      if (!tokens.length) throw new Error("Empty expression.");
+      const numbers = [];
+      const operators = [];
+      const out = [];
+      const snap = () => ({
+        tokens,
+        numbers: numbers.slice(),
+        operators: operators.slice(),
+      });
+
+      function push(partial) {
+        out.push({ tokenIndex: -1, status: "", operation: "—", result: null, ...snap(), ...partial });
+      }
+
+      push({
+        status: "Ready to scan left to right.",
+        operation: "load expression",
+      });
+
+      for (let i = 0; i < tokens.length; i += 1) {
+        const token = tokens[i];
+
+        if (typeof token === "number") {
+          numbers.push(token);
+          push({
+            tokenIndex: i,
+            status: `Push ${fmt(token)} onto the numbers stack.`,
+            operation: `push ${fmt(token)}`,
+          });
+          continue;
+        }
+
+        if (isUnary(tokens, i)) {
+          const u = token === "+" ? "u+" : "u-";
+          operators.push(u);
+          push({
+            tokenIndex: i,
+            status: `${token} is unary, so push ${u}.`,
+            operation: `push ${u}`,
+          });
+          continue;
+        }
+
+        if (token === "(") {
+          operators.push(token);
+          push({
+            tokenIndex: i,
+            status: "Push ( onto the operators stack.",
+            operation: "push (",
+          });
+          continue;
+        }
+
+        if (token === ")") {
+          while (operators.length && operators[operators.length - 1] !== "(") {
+            const applied = applyOperator(numbers, operators);
+            push({
+              tokenIndex: i,
+              status: "Apply operators until the matching ( is reached.",
+              operation: applied.text,
+            });
+          }
+          if (!operators.length) throw new Error("Missing left parenthesis.");
+          operators.pop();
+          push({
+            tokenIndex: i,
+            status: "Pop and discard (.",
+            operation: "pop (",
+          });
+          while (operators.length && (operators[operators.length - 1] === "u+" || operators[operators.length - 1] === "u-")) {
+            const applied = applyOperator(numbers, operators);
+            push({
+              tokenIndex: i,
+              status: "Apply unary operator to the parenthesized result.",
+              operation: applied.text,
+            });
+          }
+          continue;
+        }
+
+        if ("+-*/".includes(token)) {
+          while (
+            operators.length
+            && operators[operators.length - 1] !== "("
+            && precedence(operators[operators.length - 1]) >= precedence(token)
+          ) {
+            const applied = applyOperator(numbers, operators);
+            push({
+              tokenIndex: i,
+              status: "Apply a higher-or-equal precedence operator before pushing.",
+              operation: applied.text,
+            });
+          }
+          operators.push(token);
+          push({
+            tokenIndex: i,
+            status: `Push ${token} onto the operators stack.`,
+            operation: `push ${token}`,
+          });
+        }
+      }
+
+      while (operators.length) {
+        if (operators[operators.length - 1] === "(") throw new Error("Missing right parenthesis.");
+        const applied = applyOperator(numbers, operators);
+        push({
+          tokenIndex: tokens.length,
+          status: "Apply remaining operators.",
+          operation: applied.text,
+        });
+      }
+
+      if (numbers.length !== 1) throw new Error("Invalid expression.");
+
+      push({
+        tokenIndex: tokens.length,
+        status: "Evaluation complete.",
+        operation: `result = ${fmt(numbers[0])}`,
+        result: numbers[0],
+      });
+
+      return out;
+    }
+
+    function renderStack(well, items, kind) {
+      well.innerHTML = "";
+      items.forEach((item) => {
+        const cell = document.createElement("div");
+        cell.className = `cell ${kind}`;
+        cell.textContent = typeof item === "number" ? fmt(item) : item;
+        well.appendChild(cell);
+      });
+    }
+
+    function show(index) {
+      cursor = index;
+      const ev = events[index];
+      els.exprBox.innerHTML = "";
+      ev.tokens.forEach((tok, i) => {
+        const span = document.createElement("span");
+        span.className = "tok";
+        if (ev.tokenIndex === i) span.classList.add("current");
+        else if (ev.tokenIndex > i) span.classList.add("done");
+        span.textContent = typeof tok === "number" ? fmt(tok) : tok;
+        els.exprBox.appendChild(span);
+      });
+      els.status.textContent = ev.status;
+      els.status.classList.remove("error");
+      els.operation.textContent = ev.operation;
+      renderStack(els.numWell, ev.numbers, "num");
+      renderStack(els.opWell, ev.operators, "op");
+      els.result.textContent = ev.result == null ? "—" : fmt(ev.result);
+      els.prevBtn.disabled = index === 0;
+      els.nextBtn.disabled = index === events.length - 1;
+    }
+
+    function stop() {
+      playing = false;
+      els.playBtn.textContent = "Play";
+      if (timer) { clearTimeout(timer); timer = null; }
+    }
+
+    function playNext() {
+      if (!playing) return;
+      if (cursor >= events.length - 1) { stop(); return; }
+      show(cursor + 1);
+      timer = setTimeout(playNext, 700);
+    }
+
+    function load() {
+      stop();
+      try {
+        events = collectEvents(els.exprInput.value);
+        show(0);
+      } catch (err) {
+        events = [];
+        els.exprBox.innerHTML = "";
+        els.numWell.innerHTML = "";
+        els.opWell.innerHTML = "";
+        els.operation.textContent = "—";
+        els.result.textContent = "—";
+        els.status.textContent = err.message;
+        els.status.classList.add("error");
+      }
+    }
+
+    els.loadBtn.addEventListener("click", load);
+    els.resetBtn.addEventListener("click", () => { if (events.length) { stop(); show(0); } else load(); });
+    els.prevBtn.addEventListener("click", () => { stop(); if (cursor > 0) show(cursor - 1); });
+    els.nextBtn.addEventListener("click", () => { stop(); if (cursor < events.length - 1) show(cursor + 1); });
+    els.playBtn.addEventListener("click", () => {
+      if (!events.length) load();
+      if (!events.length) return;
+      if (playing) { stop(); return; }
+      if (cursor >= events.length - 1) show(0);
+      playing = true;
+      els.playBtn.textContent = "Pause";
+      timer = setTimeout(playNext, 700);
+    });
+    els.exprInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") load();
+    });
+
+    load();
+  </script>
+</body>
+</html>

@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Card Game 24</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --felt: #1b4a36;
+      --felt-dark: #123328;
+      --ink: #14130f;
+      --paper: #f4ead6;
+      --paper-dim: #e7dcc4;
+      --red: #c62828;
+      --black: #1c1a17;
+      --gold: #d4a017;
+      --line: #cbbd9e;
+      --muted: #6d6454;
+      --ok: #1f6b45;
+      --bad: #9b1c1c;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(ellipse at top, #2a2418 0%, #12100c 55%, #0c0b09 100%);
+      font-family: "IBM Plex Sans", sans-serif;
+    }
+
+    .page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 28px 20px 56px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .eyebrow {
+      margin: 0 0 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #c4b79a;
+    }
+
+    h1 {
+      margin: 0;
+      font-family: Fraunces, serif;
+      font-size: clamp(1.8rem, 4vw, 2.5rem);
+      font-weight: 700;
+      color: var(--paper);
+      letter-spacing: -0.03em;
+    }
+
+    header .lede {
+      margin: 6px 0 0;
+      color: #c4b79a;
+      font-size: 0.95rem;
+    }
+
+    .stats {
+      display: flex;
+      gap: 10px;
+    }
+
+    .stat {
+      min-width: 92px;
+      background: rgba(244, 234, 214, 0.08);
+      border: 1px solid rgba(212, 160, 23, 0.28);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: var(--paper);
+    }
+
+    .stat .kicker {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #c4b79a;
+    }
+
+    .stat .value {
+      margin-top: 2px;
+      font-family: Fraunces, serif;
+      font-size: 1.55rem;
+    }
+
+    .table {
+      position: relative;
+      background:
+        radial-gradient(ellipse at center, #2d7a58 0%, var(--felt) 52%, var(--felt-dark) 100%);
+      border-radius: 20px;
+      padding: 18px 16px 14px;
+      box-shadow: inset 0 0 0 4px #0e2a1e, inset 0 0 70px rgba(0, 0, 0, 0.3), 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    .table-mark {
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      transform: translateX(-50%);
+      font-family: Fraunces, serif;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      color: rgba(212, 160, 23, 0.55);
+    }
+
+    .hand {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(64px, 118px));
+      justify-content: center;
+      align-items: end;
+      gap: clamp(6px, 2vw, 14px);
+      min-height: 0;
+      padding: 26px 8px 6px;
+    }
+
+    .playing-card {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 118 / 164;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: linear-gradient(180deg, #fffef9 0%, #f4ead6 100%);
+      border-radius: 12px;
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(20, 19, 15, 0.12);
+      color: var(--black);
+      cursor: pointer;
+      position: relative;
+      font-family: Fraunces, serif;
+      opacity: 1;
+      animation: deal 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+      animation-delay: calc(var(--i) * 90ms);
+      transition: transform 0.2s ease;
+    }
+
+    .playing-card:hover,
+    .playing-card:focus-visible {
+      transform: translateY(-10px) rotate(-1.5deg);
+      outline: none;
+    }
+
+    .playing-card.red { color: var(--red); }
+
+    .playing-card.won {
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.35), 0 0 0 3px var(--gold);
+    }
+
+    .corner {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      line-height: 1;
+    }
+
+    .corner.top { top: 9px; left: 10px; }
+    .corner.bot { bottom: 9px; right: 10px; transform: rotate(180deg); }
+
+    .rank {
+      font-size: 1.32rem;
+      font-weight: 700;
+    }
+
+    .playing-card.ten .rank { font-size: 1.05rem; }
+
+    .playing-card.six .rank,
+    .playing-card.nine .rank {
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .mini-suit { font-size: 0.95rem; margin-top: 1px; }
+
+    .pip {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: 4.1rem;
+      pointer-events: none;
+    }
+
+    .values-hint {
+      margin: 6px 0 0;
+      text-align: center;
+      color: rgba(244, 234, 214, 0.82);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82rem;
+      min-height: 1.2em;
+    }
+
+    .panel {
+      margin-top: 16px;
+      background: var(--paper);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+    }
+
+    .panel label {
+      display: block;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    #expr {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fffdf7;
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 1.05rem;
+      color: var(--ink);
+    }
+
+    #expr:focus {
+      outline: 2px solid var(--gold);
+      border-color: var(--gold);
+    }
+
+    .ops {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .ops button,
+    .actions button,
+    .check-btn {
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .ops button {
+      border: 1px solid var(--line);
+      background: #fffdf7;
+      color: var(--ink);
+      border-radius: 8px;
+      min-width: 42px;
+      padding: 7px 10px;
+      font-family: "IBM Plex Mono", monospace;
+    }
+
+    .ops button:hover { border-color: var(--ink); }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .check-btn,
+    .actions button {
+      border: 0;
+      border-radius: 9px;
+      padding: 11px 16px;
+    }
+
+    .check-btn {
+      background: var(--ink);
+      color: var(--paper);
+    }
+
+    .actions .ghost {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+
+    .actions .gold {
+      background: var(--gold);
+      color: #1a1404;
+    }
+
+    .result {
+      margin-top: 14px;
+      min-height: 3.1em;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--paper-dim);
+      color: var(--ink);
+      font-size: 0.98rem;
+      line-height: 1.45;
+    }
+
+    .result.ok {
+      background: #dcebdd;
+      color: var(--ok);
+      font-weight: 600;
+    }
+
+    .result.bad {
+      background: #f6d9d6;
+      color: var(--bad);
+      font-weight: 600;
+    }
+
+    .result.info {
+      background: #f3e6bc;
+      color: #5a4308;
+      font-weight: 600;
+    }
+
+    .result code {
+      font-family: "IBM Plex Mono", monospace;
+      font-weight: 500;
+    }
+
+    details.rules {
+      margin-top: 16px;
+      color: #c4b79a;
+      font-size: 0.92rem;
+    }
+
+    details.rules summary {
+      cursor: pointer;
+      color: var(--paper);
+      font-weight: 600;
+    }
+
+    details.rules p { margin: 8px 0 0; line-height: 1.5; }
+
+    @keyframes deal {
+      from { opacity: 0; transform: translateY(-28px) rotate(-8deg) scale(0.92); }
+      to { opacity: 1; transform: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .playing-card { animation: none; }
+    }
+
+    @media (max-width: 640px) {
+      .pip { font-size: 2.2rem; }
+      .rank { font-size: 0.92rem; }
+      .playing-card.ten .rank { font-size: 0.75rem; }
+      .hand { padding-top: 28px; }
+      .input-row { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <div>
+        <p class="eyebrow">Make twenty-four</p>
+        <h1>Card Game 24</h1>
+        <p class="lede">Use each card once with + − × ÷ and parentheses.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <div class="kicker">Streak</div>
+          <div class="value" id="streak">0</div>
+        </div>
+        <div class="stat">
+          <div class="kicker">Solved</div>
+          <div class="value" id="solved">0</div>
+        </div>
+      </div>
+    </header>
+
+    <section class="table" aria-label="Dealt cards">
+      <div class="table-mark">GAME 24</div>
+      <div class="hand" id="hand"></div>
+      <p class="values-hint" id="valuesHint"></p>
+    </section>
+
+    <section class="panel">
+      <label for="expr">Your expression</label>
+      <div class="input-row">
+        <input id="expr" type="text" autocomplete="off" spellcheck="false"
+               placeholder="e.g. 8 / (3 − 8 / 3)" aria-label="Arithmetic expression" />
+        <button class="check-btn" id="check" type="button">Check</button>
+      </div>
+      <div class="ops" aria-label="Insert an operator">
+        <button type="button" data-insert="+">+</button>
+        <button type="button" data-insert="-">−</button>
+        <button type="button" data-insert="*">×</button>
+        <button type="button" data-insert="/">÷</button>
+        <button type="button" data-insert="(">(</button>
+        <button type="button" data-insert=")">)</button>
+      </div>
+      <div class="actions">
+        <button type="button" class="ghost" id="newDeal">New cards</button>
+        <button type="button" class="gold" id="showSol">Show solution</button>
+      </div>
+      <div class="result" id="result" role="status" aria-live="polite">
+        Click a card to insert its value. Then check your expression.
+      </div>
+    </section>
+
+    <details class="rules">
+      <summary>How to play</summary>
+      <p>
+        Ace = 1, number cards keep their face value, Jack = 11, Queen = 12, King = 13.
+        Build an expression that equals 24 and uses each of the four values exactly once.
+        Hands are dealt from a 52-card deck and are guaranteed to have a solution.
+      </p>
+    </details>
+  </div>
+
+  <script>
+    const TARGET = 24;
+    const LEAF_PREC = 3;
+    const RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+    const RANK_VALUE = {
+      A: 1, "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7,
+      "8": 8, "9": 9, "10": 10, J: 11, Q: 12, K: 13
+    };
+    const FACE = new Set(["A", "J", "Q", "K"]);
+    const SUITS = [
+      { symbol: "♠", color: "black" },
+      { symbol: "♥", color: "red" },
+      { symbol: "♦", color: "red" },
+      { symbol: "♣", color: "black" }
+    ];
+    const ERRORS = {
+      "missing right parenthesis": "Missing right parenthesis.",
+      "missing left parenthesis": "Missing left parenthesis.",
+      "unsupported character": "Unsupported character.",
+      "empty expression": "Empty expression.",
+      "missing operand": "Missing operand.",
+      "invalid number": "Invalid number.",
+      "invalid expression": "Invalid expression.",
+      "division by zero": "Division by zero."
+    };
+
+    const handEl = document.getElementById("hand");
+    const hintEl = document.getElementById("valuesHint");
+    const exprEl = document.getElementById("expr");
+    const resultEl = document.getElementById("result");
+    const streakEl = document.getElementById("streak");
+    const solvedEl = document.getElementById("solved");
+
+    let currentCards = [];
+    let currentSolution = null;
+    let solvedThisHand = false;
+    let revealed = false;
+    let streak = 0;
+    let solvedCount = 0;
+
+    function gcd(a, b) {
+      a = Math.abs(a);
+      b = Math.abs(b);
+      while (b) {
+        const t = a % b;
+        a = b;
+        b = t;
+      }
+      return a || 1;
+    }
+
+    class Frac {
+      constructor(n, d = 1) {
+        if (d === 0) throw new Error("division by zero");
+        if (d < 0) { n = -n; d = -d; }
+        const g = gcd(n, d);
+        this.n = n / g;
+        this.d = d / g;
+      }
+      add(o) { return new Frac(this.n * o.d + o.n * this.d, this.d * o.d); }
+      sub(o) { return new Frac(this.n * o.d - o.n * this.d, this.d * o.d); }
+      mul(o) { return new Frac(this.n * o.n, this.d * o.d); }
+      div(o) {
+        if (o.n === 0) throw new Error("division by zero");
+        return new Frac(this.n * o.d, this.d * o.n);
+      }
+      equalsInt(k) { return this.d === 1 && this.n === k; }
+      isInt() { return this.d === 1; }
+      toString() { return this.d === 1 ? String(this.n) : this.n + "/" + this.d; }
+    }
+
+    function fracFromLexeme(lexeme) {
+      if (lexeme === ".") throw new Error("invalid number");
+      if (lexeme.includes(".")) {
+        const neg = lexeme.startsWith("-");
+        const body = neg ? lexeme.slice(1) : lexeme;
+        const parts = body.split(".");
+        if (parts.length !== 2) throw new Error("invalid number");
+        const n = Number(parts[0] + parts[1]);
+        const d = 10 ** parts[1].length;
+        if (!Number.isFinite(n)) throw new Error("invalid number");
+        return new Frac(neg ? -n : n, d);
+      }
+      return new Frac(Number(lexeme));
+    }
+
+    function tokenize(expression) {
+      const tokens = [];
+      let i = 0;
+      const n = expression.length;
+      while (i < n) {
+        const ch = expression[i];
+        if (/\s/.test(ch)) { i += 1; continue; }
+        if (/\d/.test(ch) || ch === ".") {
+          const start = i;
+          let dotted = ch === ".";
+          i += 1;
+          while (i < n && (/\d/.test(expression[i]) || (expression[i] === "." && !dotted))) {
+            if (expression[i] === ".") dotted = true;
+            i += 1;
+          }
+          tokens.push(fracFromLexeme(expression.slice(start, i)));
+          continue;
+        }
+        if ("+-*/()".includes(ch)) {
+          tokens.push(ch);
+          i += 1;
+          continue;
+        }
+        throw new Error("unsupported character");
+      }
+      return tokens;
+    }
+
+    function precedence(op) {
+      return { "+": 1, "-": 1, "*": 2, "/": 2, "u+": 3, "u-": 3 }[op];
+    }
+
+    function isUnary(tokens, index) {
+      if (tokens[index] !== "+" && tokens[index] !== "-") return false;
+      if (index === 0) return true;
+      const prev = tokens[index - 1];
+      if (prev instanceof Frac) return false;
+      return "+-*/(".includes(prev);
+    }
+
+    function applyOperator(numbers, operators) {
+      const op = operators.pop();
+      if (op === "u-" || op === "u+") {
+        if (!numbers.length) throw new Error("missing operand");
+        const value = numbers.pop();
+        numbers.push(op === "u-" ? value.mul(new Frac(-1)) : value);
+        return;
+      }
+      if (numbers.length < 2) throw new Error("missing operand");
+      const right = numbers.pop();
+      const left = numbers.pop();
+      if (op === "+") numbers.push(left.add(right));
+      else if (op === "-") numbers.push(left.sub(right));
+      else if (op === "*") numbers.push(left.mul(right));
+      else if (op === "/") numbers.push(left.div(right));
+      else throw new Error("unknown operator");
+    }
+
+    function evaluate(tokens) {
+      if (!tokens.length) throw new Error("empty expression");
+      const numbers = [];
+      const operators = [];
+      tokens.forEach((token, i) => {
+        if (token instanceof Frac) {
+          numbers.push(token);
+          return;
+        }
+        if (isUnary(tokens, i)) {
+          operators.push(token === "+" ? "u+" : "u-");
+          return;
+        }
+        if (token === "(") {
+          operators.push(token);
+          return;
+        }
+        if (token === ")") {
+          while (operators.length && operators[operators.length - 1] !== "(") {
+            applyOperator(numbers, operators);
+          }
+          if (!operators.length) throw new Error("missing left parenthesis");
+          operators.pop();
+          while (operators.length && (operators[operators.length - 1] === "u+" || operators[operators.length - 1] === "u-")) {
+            applyOperator(numbers, operators);
+          }
+          return;
+        }
+        if ("+-*/".includes(token)) {
+          while (
+            operators.length &&
+            operators[operators.length - 1] !== "(" &&
+            precedence(operators[operators.length - 1]) >= precedence(token)
+          ) {
+            applyOperator(numbers, operators);
+          }
+          operators.push(token);
+        }
+      });
+      while (operators.length) {
+        if (operators[operators.length - 1] === "(") throw new Error("missing right parenthesis");
+        applyOperator(numbers, operators);
+      }
+      if (numbers.length !== 1) throw new Error("invalid expression");
+      return numbers[0];
+    }
+
+    function usesCardsExactlyOnce(literals, values) {
+      const used = [];
+      for (const lit of literals) {
+        if (!lit.isInt()) return false;
+        used.push(lit.n);
+      }
+      if (used.length !== values.length) return false;
+      const a = used.slice().sort((x, y) => x - y);
+      const b = values.slice().sort((x, y) => x - y);
+      return a.every((v, i) => v === b[i]);
+    }
+
+    function formatError(err) {
+      const message = err.message || String(err);
+      return ERRORS[message] || (message.charAt(0).toUpperCase() + message.slice(1) + (message.endsWith(".") ? "" : "."));
+    }
+
+    function judgeExpression(expression, values) {
+      const tokens = tokenize(expression);
+      const result = evaluate(tokens);
+      const literals = tokens.filter((t) => t instanceof Frac);
+      if (!usesCardsExactlyOnce(literals, values)) {
+        return { ok: false, kind: "bad", text: "Incorrect. Use each of " + values.join(", ") + " exactly once." };
+      }
+      if (result.equalsInt(TARGET)) {
+        return { ok: true, kind: "ok", text: "Correct! That expression equals 24." };
+      }
+      return { ok: false, kind: "bad", text: "Incorrect. That expression equals " + result.toString() + ", not 24." };
+    }
+
+    function combineExpressions(left, right) {
+      const ops = [
+        ["+", (a, b) => a.add(b), 1],
+        ["-", (a, b) => a.sub(b), 1],
+        ["*", (a, b) => a.mul(b), 2],
+        ["/", (a, b) => a.div(b), 2]
+      ];
+      const out = [];
+      for (const [op, apply, prec] of ops) {
+        if (op === "/" && right.value.n === 0) continue;
+        let value;
+        try { value = apply(left.value, right.value); }
+        catch (_) { continue; }
+        const lt = left.prec >= prec ? left.text : "(" + left.text + ")";
+        const rt = right.prec > prec ? right.text : "(" + right.text + ")";
+        out.push({ value, text: lt + " " + op + " " + rt, prec });
+      }
+      return out;
+    }
+
+    function allExpressions(values) {
+      if (values.length === 1) {
+        return [{ value: values[0], text: values[0].toString(), prec: LEAF_PREC }];
+      }
+      const results = [];
+      for (let split = 1; split < values.length; split++) {
+        const lefts = allExpressions(values.slice(0, split));
+        const rights = allExpressions(values.slice(split));
+        for (const left of lefts) {
+          for (const right of rights) {
+            results.push.apply(results, combineExpressions(left, right));
+          }
+        }
+      }
+      return results;
+    }
+
+    function uniquePermutations(values) {
+      const n = values.length;
+      const used = Array(n).fill(false);
+      const path = [];
+      const out = [];
+      const seen = new Set();
+      function rec() {
+        if (path.length === n) {
+          const key = path.map((v) => v.toString()).join(",");
+          if (!seen.has(key)) {
+            seen.add(key);
+            out.push(path.slice());
+          }
+          return;
+        }
+        for (let i = 0; i < n; i++) {
+          if (used[i]) continue;
+          used[i] = true;
+          path.push(values[i]);
+          rec();
+          path.pop();
+          used[i] = false;
+        }
+      }
+      rec();
+      return out;
+    }
+
+    function findSolution(values) {
+      let best = null;
+      const nums = values.map((v) => new Frac(v));
+      for (const perm of uniquePermutations(nums)) {
+        for (const expr of allExpressions(perm)) {
+          if (expr.value.equalsInt(TARGET)) {
+            if (best === null || expr.text.length < best.length) best = expr.text;
+          }
+        }
+      }
+      return best;
+    }
+
+    function fullDeck() {
+      const deck = [];
+      for (const suit of SUITS) {
+        for (const rank of RANKS) {
+          deck.push({ rank, value: RANK_VALUE[rank], suit: suit.symbol, color: suit.color });
+        }
+      }
+      return deck;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function dealFour() {
+      return shuffle(fullDeck()).slice(0, 4);
+    }
+
+    function dealSolvable() {
+      for (let i = 0; i < 250; i++) {
+        const cards = dealFour();
+        const solution = findSolution(cards.map((c) => c.value));
+        if (solution) return { cards, solution };
+      }
+      const fallback = [
+        { rank: "3", value: 3, suit: "♠", color: "black" },
+        { rank: "3", value: 3, suit: "♥", color: "red" },
+        { rank: "8", value: 8, suit: "♦", color: "red" },
+        { rank: "8", value: 8, suit: "♣", color: "black" }
+      ];
+      return { cards: fallback, solution: "8 / (3 - 8 / 3)" };
+    }
+
+    function cardButton(card, index) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "playing-card " + card.color;
+      if (card.rank === "10") btn.classList.add("ten");
+      if (card.rank === "6") btn.classList.add("six");
+      if (card.rank === "9") btn.classList.add("nine");
+      btn.style.setProperty("--i", String(index));
+      btn.setAttribute("aria-label", card.rank + " of " + card.suit + ", value " + card.value);
+      btn.innerHTML =
+        '<span class="corner top"><span class="rank">' + card.rank + '</span><span class="mini-suit">' + card.suit + "</span></span>" +
+        '<span class="pip">' + card.suit + "</span>" +
+        '<span class="corner bot"><span class="rank">' + card.rank + '</span><span class="mini-suit">' + card.suit + "</span></span>";
+      btn.addEventListener("click", () => insertText(String(card.value)));
+      return btn;
+    }
+
+    function renderCards(won) {
+      handEl.replaceChildren();
+      currentCards.forEach((card, i) => {
+        const btn = cardButton(card, i);
+        if (won) btn.classList.add("won");
+        handEl.appendChild(btn);
+      });
+      const values = currentCards.map((c) => c.value);
+      const needsHint = currentCards.some((c) => FACE.has(c.rank) || c.rank === "10");
+      hintEl.textContent = needsHint
+        ? "Use these values: " + values.join("  ")
+        : "Click a card to insert its value";
+    }
+
+    function setResult(kind, text) {
+      resultEl.className = "result" + (kind ? " " + kind : "");
+      resultEl.textContent = text;
+    }
+
+    function insertText(text) {
+      const start = exprEl.selectionStart ?? exprEl.value.length;
+      const end = exprEl.selectionEnd ?? exprEl.value.length;
+      exprEl.value = exprEl.value.slice(0, start) + text + exprEl.value.slice(end);
+      const pos = start + text.length;
+      exprEl.focus();
+      exprEl.setSelectionRange(pos, pos);
+    }
+
+    function newDeal() {
+      const dealt = dealSolvable();
+      currentCards = dealt.cards;
+      currentSolution = dealt.solution;
+      solvedThisHand = false;
+      revealed = false;
+      exprEl.value = "";
+      renderCards(false);
+      setResult("", "Four cards are on the table. Make 24.");
+      exprEl.focus();
+    }
+
+    function checkExpression() {
+      const values = currentCards.map((c) => c.value);
+      try {
+        const judged = judgeExpression(exprEl.value, values);
+        setResult(judged.kind, judged.text);
+        if (judged.ok) {
+          if (!solvedThisHand && !revealed) {
+            streak += 1;
+            solvedCount += 1;
+            streakEl.textContent = String(streak);
+            solvedEl.textContent = String(solvedCount);
+          }
+          solvedThisHand = true;
+          renderCards(true);
+        } else {
+          streak = 0;
+          streakEl.textContent = "0";
+        }
+      } catch (err) {
+        streak = 0;
+        streakEl.textContent = "0";
+        setResult("bad", "Invalid expression: " + formatError(err));
+      }
+    }
+
+    function showSolution() {
+      revealed = true;
+      streak = 0;
+      streakEl.textContent = "0";
+      if (!currentSolution) {
+        setResult("bad", "No solution exists for these cards.");
+        return;
+      }
+      setResult("info", "Solution: " + currentSolution + " = 24");
+      exprEl.value = currentSolution;
+      exprEl.focus();
+    }
+
+    document.getElementById("check").addEventListener("click", checkExpression);
+    document.getElementById("newDeal").addEventListener("click", newDeal);
+    document.getElementById("showSol").addEventListener("click", showSolution);
+    exprEl.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        checkExpression();
+      }
+    });
+    document.querySelectorAll(".ops [data-insert]").forEach((btn) => {
+      btn.addEventListener("click", () => insertText(btn.getAttribute("data-insert")));
+    });
+
+    newDeal();
+  </script>
+</body>
+</html>

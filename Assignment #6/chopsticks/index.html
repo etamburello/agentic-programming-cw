@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chopsticks</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header class="banner">
+      <h1>Chopsticks</h1>
+      <p class="lede">Tap a hand to attack or redistribute. Overflow at 5. At most 10 turns.</p>
+      <div class="views" role="group" aria-label="View">
+        <button type="button" id="view-play" aria-pressed="true">Play</button>
+        <button type="button" id="view-analysis" aria-pressed="false">Analysis</button>
+      </div>
+    </header>
+
+    <section class="status" id="status" aria-live="polite">
+      <p id="turn-line">Your turn · Player A</p>
+      <p id="meta-line">Ply 0 / 20 · A 1–1 · B 1–1</p>
+      <p id="note-line"></p>
+    </section>
+
+    <section class="board" id="board" aria-label="Game board">
+      <div class="strike-layer" id="strike-layer" aria-hidden="true"></div>
+      <div class="seat" id="seat-top">
+        <h2 id="top-heading">
+          <span id="top-name">Player B · Computer</span>
+          <span class="think-dots" id="think-dots" hidden>
+            <span></span><span></span><span></span>
+          </span>
+        </h2>
+        <div class="hands">
+          <button type="button" class="hand" id="top-left" data-seat="top" data-side="0">
+            <h3>Left</h3>
+            <p class="count" id="top-left-count">1</p>
+            <div class="fingers" id="top-left-fingers" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </button>
+          <button type="button" class="hand" id="top-right" data-seat="top" data-side="1">
+            <h3>Right</h3>
+            <p class="count" id="top-right-count">1</p>
+            <div class="fingers" id="top-right-fingers" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div class="seat" id="seat-bottom">
+        <h2 id="bottom-name">Player A · You</h2>
+        <div class="hands">
+          <button type="button" class="hand" id="bottom-left" data-seat="bottom" data-side="0">
+            <h3>Left</h3>
+            <p class="count" id="bottom-left-count">1</p>
+            <div class="fingers" id="bottom-left-fingers" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </button>
+          <button type="button" class="hand" id="bottom-right" data-seat="bottom" data-side="1">
+            <h3>Right</h3>
+            <p class="count" id="bottom-right-count">1</p>
+            <div class="fingers" id="bottom-right-fingers" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+            </div>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="analysis" id="analysis" hidden>
+      <h2>AI Analysis</h2>
+      <p id="analysis-empty">The computer has not moved yet. After its turn, this view lists every legal successor and the stored minimax value from Player A’s point of view.</p>
+      <div id="analysis-body" hidden>
+        <p>Current state: <span id="an-state"></span></p>
+        <p>Computer role: Player <span id="an-player"></span> — <span id="an-policy"></span></p>
+        <p>Predicted outcome (Player A): <strong id="an-outcome"></strong></p>
+        <div id="an-moves" class="analysis-moves"></div>
+        <p id="an-why"></p>
+      </div>
+    </section>
+
+    <section class="action" aria-label="Move instructions">
+      <h2>Action</h2>
+      <p id="prompt-line">Choose one of your live hands.</p>
+      <div id="amount-list"></div>
+    </section>
+
+    <section class="controls" aria-label="Game controls">
+      <button type="button" id="btn-you-first" aria-pressed="true">You first</button>
+      <button type="button" id="btn-computer-first" aria-pressed="false">You second</button>
+      <button type="button" id="btn-restart">Restart</button>
+    </section>
+  </main>
+
+  <script src="game.js"></script>
+  <script src="ai.js"></script>
+  <script>
+    (function () {
+      const game = window.ChopsticksGame;
+      const ai = window.ChopsticksAI;
+      const depth = game.depthFromMoves(game.DEFAULT_MOVES);
+      const table = ai.tableFor(depth);
+
+      const statusEl = document.getElementById("status");
+      const turnLine = document.getElementById("turn-line");
+      const metaLine = document.getElementById("meta-line");
+      const noteLine = document.getElementById("note-line");
+      const promptLine = document.getElementById("prompt-line");
+      const amountList = document.getElementById("amount-list");
+      const topName = document.getElementById("top-name");
+      const bottomName = document.getElementById("bottom-name");
+      const board = document.getElementById("board");
+      const thinkDots = document.getElementById("think-dots");
+      const strikeLayer = document.getElementById("strike-layer");
+      const seatTop = document.getElementById("seat-top");
+      const seatBottom = document.getElementById("seat-bottom");
+      const youFirstBtn = document.getElementById("btn-you-first");
+      const computerFirstBtn = document.getElementById("btn-computer-first");
+      const viewPlayBtn = document.getElementById("view-play");
+      const viewAnalysisBtn = document.getElementById("view-analysis");
+      const analysisPanel = document.getElementById("analysis");
+      const analysisEmpty = document.getElementById("analysis-empty");
+      const analysisBody = document.getElementById("analysis-body");
+      const anState = document.getElementById("an-state");
+      const anPlayer = document.getElementById("an-player");
+      const anPolicy = document.getElementById("an-policy");
+      const anOutcome = document.getElementById("an-outcome");
+      const anMoves = document.getElementById("an-moves");
+      const anWhy = document.getElementById("an-why");
+
+      const handEls = {
+        top: [
+          document.getElementById("top-left"),
+          document.getElementById("top-right"),
+        ],
+        bottom: [
+          document.getElementById("bottom-left"),
+          document.getElementById("bottom-right"),
+        ],
+      };
+
+      let state = game.initialState();
+      let humanIndex = 0;
+      let busy = false;
+      let note = "";
+      let selectedSide = null;
+      let lastTurn = null;
+      let lastAnalysis = null;
+      let showAnalysis = false;
+      let thinkTimer = null;
+      const THINK_MS = 80;
+
+      function reducedMotion() {
+        return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      }
+
+      function computerPlayer() {
+        return humanIndex === 0 ? 1 : 0;
+      }
+
+      function playerHands(player) {
+        return player === 0 ? state[0] : state[1];
+      }
+
+      function letter(player) {
+        return player === 0 ? "A" : "B";
+      }
+
+      function formatHands(hands) {
+        return hands[0] + "–" + hands[1];
+      }
+
+      function paintFingers(id, count) {
+        const pips = document.getElementById(id).children;
+        for (let i = 0; i < pips.length; i++) {
+          pips[i].classList.toggle("on", i < count);
+        }
+      }
+
+      function setHand(prefix, seat, player, hands) {
+        for (let side = 0; side < 2; side++) {
+          const el = handEls[seat][side];
+          const countId = prefix + (side === 0 ? "-left-count" : "-right-count");
+          const fingerId = prefix + (side === 0 ? "-left-fingers" : "-right-fingers");
+          const countEl = document.getElementById(countId);
+          const prev = countEl.textContent;
+          const next = String(hands[side]);
+          countEl.textContent = next;
+          paintFingers(fingerId, hands[side]);
+          el.dataset.player = String(player);
+          el.classList.toggle("dead", hands[side] === 0);
+          if (prev !== next) {
+            countEl.classList.remove("bump");
+            void countEl.offsetWidth;
+            countEl.classList.add("bump");
+          }
+        }
+      }
+
+      function outcomeCopy(result) {
+        if (result === "win") return "You win.";
+        if (result === "loss") return "You lose.";
+        return "Tie — the turn limit was reached.";
+      }
+
+      function seatOf(player) {
+        return player === humanIndex ? "bottom" : "top";
+      }
+
+      function handButton(player, side) {
+        return handEls[seatOf(player)][side];
+      }
+
+      function replayClass(el, name) {
+        if (!el) return;
+        el.classList.remove(name);
+        void el.offsetWidth;
+        el.classList.add(name);
+      }
+
+      function playStrike(fromEl, toEl) {
+        if (reducedMotion() || !fromEl || !toEl) return;
+        const boardRect = board.getBoundingClientRect();
+        const a = fromEl.getBoundingClientRect();
+        const b = toEl.getBoundingClientRect();
+        const x1 = a.left + a.width / 2 - boardRect.left;
+        const y1 = a.top + a.height / 2 - boardRect.top;
+        const x2 = b.left + b.width / 2 - boardRect.left;
+        const y2 = b.top + b.height / 2 - boardRect.top;
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        strikeLayer.style.setProperty("--x", x1 + "px");
+        strikeLayer.style.setProperty("--y", y1 + "px");
+        strikeLayer.style.setProperty("--len", Math.hypot(dx, dy) + "px");
+        strikeLayer.style.setProperty("--rot", Math.atan2(dy, dx) + "rad");
+        replayClass(strikeLayer, "play");
+      }
+
+      function inferMove(before, after) {
+        const mover = game.currentPlayer(before);
+        const opp = 1 - mover;
+        const attack = game.handsEqual(before[mover], after[mover]) &&
+          !game.handsEqual(before[opp], after[opp]);
+        let toSide = 0;
+        if (attack) {
+          if (before[opp][0] !== after[opp][0]) toSide = 0;
+          else toSide = 1;
+        }
+        let fromSide = 0;
+        if (attack) {
+          const old = before[opp][toSide];
+          const added = after[opp][toSide];
+          fromSide = -1;
+          for (let side = 0; side < 2; side++) {
+            if (before[mover][side] > 0 &&
+                game.overflowSum(before[mover][side], old) === added) {
+              fromSide = side;
+              break;
+            }
+          }
+          if (fromSide < 0) fromSide = before[mover][0] > 0 ? 0 : 1;
+        } else if (before[mover][0] !== after[mover][0] && before[mover][1] === after[mover][1]) {
+          fromSide = 0;
+        } else if (before[mover][1] !== after[mover][1] && before[mover][0] === after[mover][0]) {
+          fromSide = 1;
+        } else {
+          fromSide = before[mover][0] > after[mover][0] ? 0 : 1;
+        }
+        return {
+          kind: attack ? "attack" : "transfer",
+          fromPlayer: mover,
+          fromSide: fromSide,
+          toPlayer: attack ? opp : mover,
+          toSide: attack ? toSide : 1 - fromSide,
+        };
+      }
+
+      function showMove(before, after, hint) {
+        const info = hint || inferMove(before, after);
+        const fromEl = handButton(info.fromPlayer, info.fromSide);
+        const toEl = handButton(info.toPlayer, info.toSide);
+        if (info.kind === "attack") {
+          playStrike(fromEl, toEl);
+          replayClass(fromEl, "striking");
+          replayClass(toEl, "hit");
+          if (after[info.toPlayer][info.toSide] === 0 && before[info.toPlayer][info.toSide] !== 0) {
+            replayClass(toEl, "overflow-out");
+          }
+        } else {
+          replayClass(fromEl, "shifted");
+          replayClass(toEl, "shifted");
+        }
+      }
+
+      function render() {
+        const topPlayer = computerPlayer();
+        const bottomPlayer = humanIndex;
+        const over = game.isGameOver(state, depth);
+        const result = game.humanResult(state, depth, humanIndex);
+        const toMove = game.currentPlayer(state);
+        const yourTurn = !over && !busy && toMove === humanIndex;
+        const thinking = busy && !over;
+        const turnKey = over ? "over" : (thinking ? "computer" : "you");
+
+        topName.textContent = "Player " + letter(topPlayer) + " · Computer";
+        bottomName.textContent = "Player " + letter(bottomPlayer) + " · You";
+        seatTop.dataset.role = "computer";
+        seatBottom.dataset.role = "you";
+        setHand("top", "top", topPlayer, playerHands(topPlayer));
+        setHand("bottom", "bottom", bottomPlayer, playerHands(bottomPlayer));
+
+        youFirstBtn.setAttribute("aria-pressed", humanIndex === 0 ? "true" : "false");
+        computerFirstBtn.setAttribute("aria-pressed", humanIndex === 1 ? "true" : "false");
+
+        statusEl.classList.toggle("is-win", result === "win");
+        statusEl.classList.toggle("is-loss", result === "loss");
+        statusEl.classList.toggle("is-tie", result === "tie");
+        statusEl.classList.toggle("is-busy", thinking);
+        document.querySelector(".app").classList.toggle("is-thinking", thinking);
+        thinkDots.hidden = !thinking;
+        seatTop.classList.toggle("thinking", thinking);
+        seatTop.classList.toggle("to-move", !over && (thinking || toMove === computerPlayer()));
+        seatBottom.classList.toggle("to-move", yourTurn);
+        board.setAttribute("aria-busy", thinking ? "true" : "false");
+
+        if (turnKey !== lastTurn) {
+          replayClass(statusEl, "turn-swap");
+          lastTurn = turnKey;
+        }
+
+        if (over) {
+          turnLine.textContent = outcomeCopy(result);
+        } else if (thinking) {
+          turnLine.textContent = "Computer is thinking… · Player " + letter(toMove);
+        } else if (toMove !== humanIndex) {
+          turnLine.textContent = "Computer's turn · Player " + letter(toMove);
+        } else {
+          turnLine.textContent = "Your turn · Player " + letter(toMove);
+        }
+
+        metaLine.textContent =
+          "Ply " + state[2] + " / " + depth +
+          " · A " + formatHands(state[0]) +
+          " · B " + formatHands(state[1]);
+        noteLine.textContent = note;
+
+        amountList.replaceChildren();
+        let prompt = "";
+        if (over) {
+          prompt = "Restart to play again.";
+          selectedSide = null;
+        } else if (thinking || toMove !== humanIndex) {
+          prompt = thinking ? "Computer is choosing a move." : "Waiting for the computer.";
+          selectedSide = null;
+        } else if (selectedSide === null) {
+          prompt = "Choose one of your live hands.";
+        } else {
+          const splits = game.transferMoves(state, selectedSide);
+          prompt = "Tap a highlighted opponent hand to attack, or your other hand to redistribute.";
+          if (splits.length > 1) {
+            prompt = "Choose how many fingers to move onto your other hand.";
+            splits.forEach(function (option) {
+              const btn = document.createElement("button");
+              btn.type = "button";
+              btn.dataset.amount = String(option.amount);
+              btn.textContent = "Move " + option.amount;
+              amountList.appendChild(btn);
+            });
+          }
+        }
+        promptLine.textContent = prompt;
+
+        renderAnalysis();
+
+        ["top", "bottom"].forEach(function (seat) {
+          const player = Number(handEls[seat][0].dataset.player);
+          for (let side = 0; side < 2; side++) {
+            const el = handEls[seat][side];
+            const count = playerHands(player)[side];
+            el.classList.remove("selected", "target-attack", "target-split", "inactive");
+
+            if (!yourTurn || count === 0) {
+              el.disabled = true;
+              el.classList.add("inactive");
+              continue;
+            }
+
+            if (selectedSide === null) {
+              el.disabled = player !== humanIndex;
+              if (el.disabled) el.classList.add("inactive");
+              continue;
+            }
+
+            if (player === humanIndex && side === selectedSide) {
+              el.disabled = false;
+              el.classList.add("selected");
+              continue;
+            }
+
+            if (player === computerPlayer() && game.attackMove(state, selectedSide, side)) {
+              el.disabled = false;
+              el.classList.add("target-attack");
+              continue;
+            }
+
+            if (player === humanIndex && side !== selectedSide &&
+                game.transferMoves(state, selectedSide).length > 0) {
+              el.disabled = false;
+              el.classList.add("target-split");
+              continue;
+            }
+
+            el.disabled = true;
+            el.classList.add("inactive");
+          }
+        });
+      }
+
+      function renderAnalysis() {
+        analysisPanel.hidden = !showAnalysis;
+        viewPlayBtn.setAttribute("aria-pressed", showAnalysis ? "false" : "true");
+        viewAnalysisBtn.setAttribute("aria-pressed", showAnalysis ? "true" : "false");
+        if (!showAnalysis) return;
+        if (!lastAnalysis) {
+          analysisEmpty.hidden = false;
+          analysisBody.hidden = true;
+          return;
+        }
+        analysisEmpty.hidden = true;
+        analysisBody.hidden = false;
+        anState.textContent = lastAnalysis.formattedState;
+        anPlayer.textContent = lastAnalysis.player;
+        anPolicy.textContent = lastAnalysis.policy;
+        anOutcome.textContent = lastAnalysis.predictedOutcome;
+        anMoves.replaceChildren();
+        lastAnalysis.moves.forEach(function (move) {
+          const row = document.createElement("p");
+          row.className = move.selected ? "analysis-row is-selected" : "analysis-row";
+          const label = document.createElement("span");
+          label.textContent = "Move " + move.index;
+          const value = document.createElement("span");
+          value.textContent = "value " + ai.formatValue(move.value);
+          const mark = document.createElement("span");
+          mark.className = "analysis-mark";
+          mark.textContent = move.selected ? "<- selected" : "";
+          const dest = document.createElement("span");
+          dest.className = "analysis-dest";
+          dest.textContent = move.formattedState;
+          row.append(label, value, mark, dest);
+          anMoves.appendChild(row);
+        });
+        const opt = lastAnalysis.moves.filter(function (m) {
+          return m.value === lastAnalysis.selectedValue;
+        }).length;
+        const goal = lastAnalysis.policy === "MAX"
+          ? "maximize Player A's result"
+          : "minimize Player A's result";
+        let why = "The computer is Player " + lastAnalysis.player +
+          " and will " + goal + ", so it selects value " +
+          ai.formatValue(lastAnalysis.selectedValue) +
+          " (" + lastAnalysis.predictedOutcome + " for A).";
+        if (opt > 1) {
+          why += " " + opt + " moves share that value; the table stores the first.";
+        }
+        anWhy.textContent = why;
+      }
+
+      function commit(next, hint) {
+        const before = state;
+        state = next;
+        selectedSide = null;
+        note = "";
+        render();
+        showMove(before, next, hint);
+        maybeComputer();
+      }
+
+      function onHandClick(player, side) {
+        if (busy || game.isGameOver(state, depth)) return;
+        if (game.currentPlayer(state) !== humanIndex) return;
+
+        if (selectedSide === null) {
+          if (player !== humanIndex) return;
+          if (playerHands(humanIndex)[side] === 0) return;
+          selectedSide = side;
+          render();
+          return;
+        }
+
+        if (player === humanIndex && side === selectedSide) {
+          selectedSide = null;
+          render();
+          return;
+        }
+
+        if (player === computerPlayer()) {
+          const attack = game.attackMove(state, selectedSide, side);
+          if (attack) {
+            commit(attack, {
+              kind: "attack",
+              fromPlayer: humanIndex,
+              fromSide: selectedSide,
+              toPlayer: computerPlayer(),
+              toSide: side,
+            });
+          }
+          return;
+        }
+
+        const splits = game.transferMoves(state, selectedSide);
+        if (splits.length === 1) {
+          commit(splits[0].successor, {
+            kind: "transfer",
+            fromPlayer: humanIndex,
+            fromSide: selectedSide,
+            toPlayer: humanIndex,
+            toSide: side,
+          });
+        } else if (splits.length > 1) {
+          render();
+        }
+      }
+
+      function playComputer() {
+        thinkTimer = null;
+        if (game.isGameOver(state, depth) || game.currentPlayer(state) !== computerPlayer()) {
+          busy = false;
+          render();
+          return;
+        }
+        const before = state;
+        const entry = ai.evaluate(table, state);
+        note = ai.computerWillWin(entry.value, humanIndex)
+          ? "I will win."
+          : "I may not win.";
+        const next = ai.chooseComputerMove(table, state);
+        if (next) state = next;
+        busy = false;
+        selectedSide = null;
+        render();
+        if (next) showMove(before, next);
+      }
+
+      function maybeComputer() {
+        if (thinkTimer !== null) {
+          window.clearTimeout(thinkTimer);
+          thinkTimer = null;
+        }
+        if (game.isGameOver(state, depth) || game.currentPlayer(state) !== computerPlayer()) {
+          busy = false;
+          render();
+          return;
+        }
+        busy = true;
+        selectedSide = null;
+        lastAnalysis = ai.explainMove(table, state);
+        render();
+        const wait = reducedMotion() ? 0 : THINK_MS;
+        thinkTimer = window.setTimeout(playComputer, wait);
+      }
+
+      function start(asHumanIndex) {
+        if (thinkTimer !== null) {
+          window.clearTimeout(thinkTimer);
+          thinkTimer = null;
+        }
+        humanIndex = asHumanIndex;
+        state = game.initialState();
+        note = "";
+        busy = false;
+        selectedSide = null;
+        lastTurn = null;
+        lastAnalysis = null;
+        strikeLayer.classList.remove("play");
+        maybeComputer();
+      }
+
+      board.addEventListener("click", function (event) {
+        const hand = event.target.closest("button.hand");
+        if (!hand || hand.disabled) return;
+        onHandClick(Number(hand.dataset.player), Number(hand.dataset.side));
+      });
+
+      amountList.addEventListener("click", function (event) {
+        const btn = event.target.closest("button[data-amount]");
+        if (!btn || selectedSide === null) return;
+        const amount = Number(btn.dataset.amount);
+        const splits = game.transferMoves(state, selectedSide);
+        for (let i = 0; i < splits.length; i++) {
+          if (splits[i].amount === amount) {
+            commit(splits[i].successor, {
+              kind: "transfer",
+              fromPlayer: humanIndex,
+              fromSide: selectedSide,
+              toPlayer: humanIndex,
+              toSide: 1 - selectedSide,
+            });
+            return;
+          }
+        }
+      });
+
+      youFirstBtn.addEventListener("click", function () { start(0); });
+      computerFirstBtn.addEventListener("click", function () { start(1); });
+      document.getElementById("btn-restart").addEventListener("click", function () {
+        start(humanIndex);
+      });
+      viewPlayBtn.addEventListener("click", function () {
+        showAnalysis = false;
+        renderAnalysis();
+      });
+      viewAnalysisBtn.addEventListener("click", function () {
+        showAnalysis = true;
+        renderAnalysis();
+      });
+      computerFirstBtn.addEventListener("click", function () { start(1); });
+      document.getElementById("btn-restart").addEventListener("click", function () {
+        start(humanIndex);
+      });
+
+      start(0);
+    })();
+  </script>
+</body>
+</html>

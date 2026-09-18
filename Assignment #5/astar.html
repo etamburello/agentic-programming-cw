@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>8-Puzzle A* Visualizer</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090d1a;
+      --panel: #141c31;
+      --panel-2: #1b2642;
+      --line: rgba(255, 255, 255, 0.09);
+      --text: #f5f7ff;
+      --muted: #a9b4cf;
+      --accent: #ffca66;
+      --accent-2: #61dfc1;
+      --tile: #eef2ff;
+      --tile-text: #16203a;
+      --danger: #ff8c9b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 28px 18px;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 5%, #332a57 0, transparent 30%),
+        radial-gradient(circle at 92% 90%, #15423e 0, transparent 28%),
+        var(--bg);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .app {
+      width: min(1180px, 100%);
+      margin: 0 auto;
+    }
+
+    header {
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      letter-spacing: -0.045em;
+    }
+
+    header p,
+    .hint {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(330px, 0.9fr) minmax(430px, 1.25fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      padding: 22px;
+      border: 1px solid var(--line);
+      border-radius: 21px;
+      background: rgba(20, 28, 49, 0.94);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    }
+
+    .board {
+      width: min(100%, 340px);
+      aspect-ratio: 1;
+      margin: 0 auto;
+      padding: 11px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      border-radius: 19px;
+      background: #080c17;
+    }
+
+    .tile {
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: var(--tile-text);
+      background: var(--tile);
+      box-shadow: 0 6px 0 #b7c0d7;
+      font-size: clamp(1.7rem, 6vw, 2.8rem);
+      font-weight: 850;
+      transition: transform 180ms ease, background 180ms ease;
+    }
+
+    .tile.moved {
+      color: #342300;
+      background: var(--accent);
+      transform: scale(1.04);
+    }
+
+    .tile.blank {
+      color: transparent;
+      background: var(--panel-2);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.04);
+    }
+
+    .score-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 9px;
+      margin-top: 18px;
+    }
+
+    .score {
+      padding: 12px;
+      border-radius: 12px;
+      background: #0c1222;
+      text-align: center;
+    }
+
+    .score span,
+    .stat-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .score strong {
+      font-size: 1.45rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .score.f-score {
+      box-shadow: inset 0 0 0 1px rgba(255, 202, 102, 0.45);
+    }
+
+    .status {
+      min-height: 24px;
+      margin: 16px 0 0;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 15px;
+    }
+
+    button {
+      min-height: 43px;
+      padding: 9px 11px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--text);
+      background: var(--panel-2);
+      cursor: pointer;
+      font-weight: 750;
+      transition: transform 120ms ease, filter 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover:not(:disabled) {
+      filter: brightness(1.14);
+      transform: translateY(-1px);
+    }
+
+    button:focus-visible,
+    input:focus-visible {
+      outline: 3px solid rgba(255, 202, 102, 0.55);
+      outline-offset: 2px;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.4;
+    }
+
+    .primary {
+      color: #312100;
+      background: var(--accent);
+    }
+
+    .speed-row {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: auto 1fr 68px;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+    }
+
+    #speedValue {
+      color: var(--text);
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .section-title {
+      margin: 0 0 5px;
+      font-size: 1.1rem;
+    }
+
+    .queue-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+      margin-bottom: 14px;
+    }
+
+    .queue-note {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.83rem;
+      text-align: right;
+    }
+
+    .queue-list {
+      min-height: 252px;
+      display: grid;
+      gap: 9px;
+    }
+
+    .queue-empty {
+      display: grid;
+      place-items: center;
+      min-height: 220px;
+      border: 1px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .candidate {
+      display: grid;
+      grid-template-columns: 64px minmax(90px, 1fr) auto;
+      align-items: center;
+      gap: 13px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: #0d1425;
+    }
+
+    .candidate.selected {
+      border-color: rgba(97, 223, 193, 0.65);
+      background: rgba(27, 75, 67, 0.46);
+    }
+
+    .mini-board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 2px;
+      width: 64px;
+      aspect-ratio: 1;
+      padding: 3px;
+      border-radius: 7px;
+      background: #050914;
+    }
+
+    .mini-tile {
+      display: grid;
+      place-items: center;
+      border-radius: 3px;
+      color: var(--tile-text);
+      background: #dce3f5;
+      font-size: 0.68rem;
+      font-weight: 800;
+    }
+
+    .mini-tile.blank {
+      color: transparent;
+      background: var(--panel-2);
+    }
+
+    .candidate-name {
+      font-weight: 800;
+    }
+
+    .selected-tag {
+      display: block;
+      margin-top: 3px;
+      color: var(--accent-2);
+      font-size: 0.74rem;
+      font-weight: 750;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .candidate-scores {
+      display: grid;
+      grid-template-columns: repeat(3, 46px);
+      gap: 5px;
+      text-align: center;
+    }
+
+    .candidate-score {
+      padding: 6px 4px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 0.82rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .candidate-score:last-child {
+      color: var(--accent);
+      font-weight: 800;
+    }
+
+    .setup {
+      margin-top: 18px;
+    }
+
+    .setup-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: end;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 48px);
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .input-grid input {
+      width: 48px;
+      height: 43px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: #0b1120;
+      text-align: center;
+      font-weight: 750;
+    }
+
+    .solve-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .stat {
+      min-height: 72px;
+      padding: 10px;
+      border-radius: 11px;
+      background: #0c1222;
+    }
+
+    .stat-value {
+      font-size: 1.1rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 850px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 560px) {
+      .controls {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .controls button:last-child {
+        grid-column: 1 / -1;
+      }
+
+      .candidate {
+        grid-template-columns: 52px 1fr;
+      }
+
+      .mini-board {
+        width: 52px;
+      }
+
+      .candidate-scores {
+        grid-column: 1 / -1;
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>8-Puzzle A* Visualizer</h1>
+      <p>A* prioritizes states using f(n) = g(n) + h(n), with Manhattan distance for h(n).</p>
+    </header>
+
+    <div class="layout">
+      <section class="panel" aria-label="A-star puzzle visualization">
+        <div id="board" class="board" aria-label="8-puzzle board"></div>
+
+        <div class="score-strip" aria-label="Current A-star scores">
+          <div class="score">
+            <span>g(n) · moves used</span>
+            <strong id="gScore">0</strong>
+          </div>
+          <div class="score">
+            <span>h(n) · estimate</span>
+            <strong id="hScore">—</strong>
+          </div>
+          <div class="score f-score">
+            <span>f(n) · priority</span>
+            <strong id="fScore">—</strong>
+          </div>
+        </div>
+
+        <p id="status" class="status" role="status" aria-live="polite">Ready to search.</p>
+
+        <div class="controls">
+          <button id="previousButton" type="button">Previous</button>
+          <button id="playButton" class="primary" type="button">Play</button>
+          <button id="pauseButton" type="button">Pause</button>
+          <button id="nextButton" type="button">Next</button>
+          <button id="resetButton" type="button">Reset</button>
+        </div>
+
+        <label class="speed-row" for="speed">
+          <span>Speed</span>
+          <input id="speed" type="range" min="100" max="1500" step="100" value="700">
+          <span id="speedValue">0.7 sec</span>
+        </label>
+      </section>
+
+      <section class="panel" aria-label="A-star priority queue">
+        <div class="queue-header">
+          <div>
+            <h2 class="section-title">Open list / priority queue</h2>
+            <p class="hint">Snapshot from when this solution state was expanded.</p>
+          </div>
+          <p class="queue-note">Lowest f first<br>ties: lowest h</p>
+        </div>
+        <div id="queueList" class="queue-list"></div>
+      </section>
+    </div>
+
+    <section class="panel setup">
+      <div class="setup-row">
+        <div>
+          <h2 class="section-title">Initial configuration</h2>
+          <div id="inputGrid" class="input-grid" aria-label="Initial puzzle values"></div>
+          <p class="hint">Use every number from 0 through 8 once. Zero is the blank.</p>
+        </div>
+        <div class="solve-actions">
+          <button id="solveButton" class="primary" type="button">Solve with A*</button>
+          <button id="exampleButton" type="button">Load example</button>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <span class="stat-label">Solution step</span>
+          <span id="currentStep" class="stat-value">0 / —</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Tile moved</span>
+          <span id="tileMoved" class="stat-value">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Optimal moves</span>
+          <span id="totalMoves" class="stat-value">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">States expanded</span>
+          <span id="statesExpanded" class="stat-value">—</span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">States discovered</span>
+          <span id="statesDiscovered" class="stat-value">—</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    "use strict";
+
+    const EXAMPLE = [8, 7, 6, 5, 4, 3, 2, 1, 0];
+    const GOAL = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+    const GOAL_KEY = GOAL.join("");
+    const GOAL_POSITIONS = new Map(
+      GOAL.map((tile, index) => [tile, [Math.floor(index / 3), index % 3]])
+    );
+
+    const elements = {
+      board: document.getElementById("board"),
+      inputGrid: document.getElementById("inputGrid"),
+      queueList: document.getElementById("queueList"),
+      status: document.getElementById("status"),
+      solve: document.getElementById("solveButton"),
+      example: document.getElementById("exampleButton"),
+      previous: document.getElementById("previousButton"),
+      play: document.getElementById("playButton"),
+      pause: document.getElementById("pauseButton"),
+      next: document.getElementById("nextButton"),
+      reset: document.getElementById("resetButton"),
+      speed: document.getElementById("speed"),
+      speedValue: document.getElementById("speedValue"),
+      currentStep: document.getElementById("currentStep"),
+      tileMoved: document.getElementById("tileMoved"),
+      totalMoves: document.getElementById("totalMoves"),
+      statesExpanded: document.getElementById("statesExpanded"),
+      statesDiscovered: document.getElementById("statesDiscovered"),
+      g: document.getElementById("gScore"),
+      h: document.getElementById("hScore"),
+      f: document.getElementById("fScore")
+    };
+
+    let solution = [];
+    let movedTiles = [];
+    let queueSnapshots = new Map();
+    let currentStep = 0;
+    let playTimer = null;
+    let solving = false;
+
+    class MinHeap {
+      constructor(compare) {
+        this.items = [];
+        this.compare = compare;
+      }
+
+      get size() {
+        return this.items.length;
+      }
+
+      push(value) {
+        this.items.push(value);
+        let index = this.items.length - 1;
+
+        while (index > 0) {
+          const parent = Math.floor((index - 1) / 2);
+          if (this.compare(this.items[parent], value) <= 0) {
+            break;
+          }
+          this.items[index] = this.items[parent];
+          index = parent;
+        }
+        this.items[index] = value;
+      }
+
+      pop() {
+        const root = this.items[0];
+        const last = this.items.pop();
+
+        if (this.items.length > 0) {
+          let index = 0;
+          this.items[0] = last;
+
+          while (true) {
+            const left = index * 2 + 1;
+            const right = left + 1;
+            let smallest = index;
+
+            if (
+              left < this.items.length &&
+              this.compare(this.items[left], this.items[smallest]) < 0
+            ) {
+              smallest = left;
+            }
+            if (
+              right < this.items.length &&
+              this.compare(this.items[right], this.items[smallest]) < 0
+            ) {
+              smallest = right;
+            }
+            if (smallest === index) {
+              break;
+            }
+            [this.items[index], this.items[smallest]] = [
+              this.items[smallest],
+              this.items[index]
+            ];
+            index = smallest;
+          }
+        }
+
+        return root;
+      }
+    }
+
+    function compareEntries(left, right) {
+      return left.f - right.f || left.h - right.h || left.order - right.order;
+    }
+
+    function manhattanDistance(key) {
+      let distance = 0;
+
+      for (let index = 0; index < key.length; index += 1) {
+        const tile = Number(key[index]);
+        if (tile === 0) {
+          continue;
+        }
+        const row = Math.floor(index / 3);
+        const column = index % 3;
+        const [goalRow, goalColumn] = GOAL_POSITIONS.get(tile);
+        distance += Math.abs(row - goalRow) + Math.abs(column - goalColumn);
+      }
+
+      return distance;
+    }
+
+    function getNeighbors(key) {
+      const state = key.split("").map(Number);
+      const blank = state.indexOf(0);
+      const row = Math.floor(blank / 3);
+      const column = blank % 3;
+      const result = [];
+
+      for (const [rowChange, columnChange] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const newRow = row + rowChange;
+        const newColumn = column + columnChange;
+
+        if (newRow >= 0 && newRow < 3 && newColumn >= 0 && newColumn < 3) {
+          const tileIndex = newRow * 3 + newColumn;
+          const movedTile = state[tileIndex];
+          const nextState = [...state];
+          [nextState[blank], nextState[tileIndex]] = [
+            nextState[tileIndex],
+            nextState[blank]
+          ];
+          result.push({ key: nextState.join(""), movedTile });
+        }
+      }
+
+      return result;
+    }
+
+    function reconstructPath(parents, moves) {
+      const path = [];
+      const pathMoves = [];
+      let current = GOAL_KEY;
+
+      while (current !== null) {
+        path.push(current);
+        if (parents.get(current) !== null) {
+          pathMoves.push(moves.get(current));
+        }
+        current = parents.get(current);
+      }
+
+      path.reverse();
+      pathMoves.reverse();
+      return { path, pathMoves: [null, ...pathMoves] };
+    }
+
+    function createSearch(initialKey) {
+      const heap = new MinHeap(compareEntries);
+      const initialH = manhattanDistance(initialKey);
+      const initialEntry = {
+        key: initialKey,
+        g: 0,
+        h: initialH,
+        f: initialH,
+        order: 0
+      };
+
+      heap.push(initialEntry);
+      return {
+        heap,
+        bestG: new Map([[initialKey, 0]]),
+        parents: new Map([[initialKey, null]]),
+        moves: new Map(),
+        activeEntries: new Map([[initialKey, initialEntry]]),
+        nextOrder: 1,
+        expanded: 0,
+        generated: 1
+      };
+    }
+
+    function expandEntry(search, current) {
+      for (const neighbor of getNeighbors(current.key)) {
+        const tentativeG = current.g + 1;
+
+        if (tentativeG < (search.bestG.get(neighbor.key) ?? Infinity)) {
+          search.bestG.set(neighbor.key, tentativeG);
+          search.parents.set(neighbor.key, current.key);
+          search.moves.set(neighbor.key, neighbor.movedTile);
+          const h = manhattanDistance(neighbor.key);
+          const entry = {
+            key: neighbor.key,
+            g: tentativeG,
+            h,
+            f: tentativeG + h,
+            order: search.nextOrder
+          };
+          search.nextOrder += 1;
+          search.generated += 1;
+          search.activeEntries.set(neighbor.key, entry);
+          search.heap.push(entry);
+        }
+      }
+    }
+
+    function popCurrent(search) {
+      while (search.heap.size > 0) {
+        const current = search.heap.pop();
+        if (search.activeEntries.get(current.key) === current) {
+          search.activeEntries.delete(current.key);
+          search.expanded += 1;
+          return current;
+        }
+      }
+      return null;
+    }
+
+    async function runAStar(initialKey) {
+      const search = createSearch(initialKey);
+
+      while (search.heap.size > 0) {
+        const current = popCurrent(search);
+        if (current === null) {
+          break;
+        }
+
+        if (current.key === GOAL_KEY) {
+          return {
+            ...reconstructPath(search.parents, search.moves),
+            expanded: search.expanded,
+            generated: search.generated,
+            discovered: search.bestG.size
+          };
+        }
+
+        expandEntry(search, current);
+
+        if (search.expanded % 3000 === 0) {
+          elements.status.textContent =
+            `Searching… ${search.expanded.toLocaleString()} states expanded`;
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+
+      return null;
+    }
+
+    async function captureQueueSnapshots(initialKey, path) {
+      const targets = new Set(path);
+      const snapshots = new Map();
+      const search = createSearch(initialKey);
+
+      while (search.heap.size > 0 && snapshots.size < targets.size) {
+        const current = popCurrent(search);
+        if (current === null) {
+          break;
+        }
+
+        if (targets.has(current.key)) {
+          const alternatives = [...search.activeEntries.values()]
+            .sort(compareEntries)
+            .slice(0, 4);
+          snapshots.set(current.key, [current, ...alternatives]);
+        }
+
+        if (current.key === GOAL_KEY) {
+          break;
+        }
+
+        expandEntry(search, current);
+
+        if (search.expanded % 3000 === 0) {
+          elements.status.textContent = "Preparing open-list snapshots…";
+          await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+      }
+
+      return snapshots;
+    }
+
+    function createInputs() {
+      EXAMPLE.forEach((value, index) => {
+        const input = document.createElement("input");
+        input.type = "number";
+        input.min = "0";
+        input.max = "8";
+        input.value = value;
+        input.setAttribute(
+          "aria-label",
+          `Row ${Math.floor(index / 3) + 1}, column ${index % 3 + 1}`
+        );
+        elements.inputGrid.appendChild(input);
+      });
+    }
+
+    function setInputs(values) {
+      [...elements.inputGrid.querySelectorAll("input")].forEach((input, index) => {
+        input.value = values[index];
+      });
+    }
+
+    function readInputs() {
+      const values = [...elements.inputGrid.querySelectorAll("input")].map(
+        (input) => Number(input.value)
+      );
+      const valid = values.every(
+        (value) => Number.isInteger(value) && value >= 0 && value <= 8
+      );
+
+      if (!valid || new Set(values).size !== 9) {
+        throw new Error("Use every number from 0 through 8 exactly once.");
+      }
+      return values;
+    }
+
+    function isSolvable(state) {
+      const tiles = state.filter((tile) => tile !== 0);
+      let inversions = 0;
+
+      for (let left = 0; left < tiles.length; left += 1) {
+        for (let right = left + 1; right < tiles.length; right += 1) {
+          if (tiles[left] > tiles[right]) {
+            inversions += 1;
+          }
+        }
+      }
+      return inversions % 2 === 0;
+    }
+
+    function renderBoard(key, movedTile = null) {
+      elements.board.replaceChildren();
+
+      for (const character of key) {
+        const value = Number(character);
+        const tile = document.createElement("div");
+        tile.className = value === 0 ? "tile blank" : "tile";
+        if (value === movedTile) {
+          tile.classList.add("moved");
+        }
+        tile.textContent = value;
+        tile.setAttribute("aria-label", value === 0 ? "Blank" : `Tile ${value}`);
+        elements.board.appendChild(tile);
+      }
+    }
+
+    function createMiniBoard(key) {
+      const miniBoard = document.createElement("div");
+      miniBoard.className = "mini-board";
+      miniBoard.setAttribute("aria-hidden", "true");
+
+      for (const character of key) {
+        const tile = document.createElement("span");
+        tile.className = character === "0" ? "mini-tile blank" : "mini-tile";
+        tile.textContent = character;
+        miniBoard.appendChild(tile);
+      }
+      return miniBoard;
+    }
+
+    function renderQueue(key) {
+      elements.queueList.replaceChildren();
+      const candidates = queueSnapshots.get(key) ?? [];
+
+      if (candidates.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "queue-empty";
+        empty.textContent = "Solve the puzzle to inspect A* priorities.";
+        elements.queueList.appendChild(empty);
+        return;
+      }
+
+      candidates.forEach((candidate, index) => {
+        const row = document.createElement("div");
+        row.className = index === 0 ? "candidate selected" : "candidate";
+        row.appendChild(createMiniBoard(candidate.key));
+
+        const identity = document.createElement("div");
+        identity.className = "candidate-name";
+        identity.textContent = index === 0 ? "Current state" : `Candidate ${index}`;
+        if (index === 0) {
+          const tag = document.createElement("span");
+          tag.className = "selected-tag";
+          tag.textContent = "Selected: minimum priority";
+          identity.appendChild(tag);
+        }
+        row.appendChild(identity);
+
+        const scores = document.createElement("div");
+        scores.className = "candidate-scores";
+        for (const [label, value] of [
+          ["g", candidate.g],
+          ["h", candidate.h],
+          ["f", candidate.f]
+        ]) {
+          const score = document.createElement("span");
+          score.className = "candidate-score";
+          score.textContent = `${label}=${value}`;
+          scores.appendChild(score);
+        }
+        row.appendChild(scores);
+        elements.queueList.appendChild(row);
+      });
+    }
+
+    function renderStep() {
+      if (solution.length === 0) {
+        updateControls();
+        return;
+      }
+
+      const key = solution[currentStep];
+      const h = manhattanDistance(key);
+      renderBoard(key, movedTiles[currentStep]);
+      renderQueue(key);
+      elements.g.textContent = currentStep;
+      elements.h.textContent = h;
+      elements.f.textContent = currentStep + h;
+      elements.currentStep.textContent = `${currentStep} / ${solution.length - 1}`;
+      elements.tileMoved.textContent = movedTiles[currentStep] ?? "—";
+      elements.status.className = "status";
+      elements.status.textContent =
+        currentStep === solution.length - 1
+          ? "Goal reached!"
+          : currentStep === 0
+            ? "Solution ready. The highlighted state had minimum priority."
+            : `Moved tile ${movedTiles[currentStep]}.`;
+      updateControls();
+    }
+
+    function updateControls() {
+      const hasSolution = solution.length > 0;
+      elements.previous.disabled = solving || !hasSolution || currentStep === 0;
+      elements.next.disabled =
+        solving || !hasSolution || currentStep === solution.length - 1;
+      elements.play.disabled =
+        solving || !hasSolution || currentStep === solution.length - 1 ||
+        playTimer !== null;
+      elements.pause.disabled = playTimer === null;
+      elements.reset.disabled = solving || !hasSolution || currentStep === 0;
+      elements.solve.disabled = solving;
+      elements.example.disabled = solving;
+    }
+
+    function pause() {
+      if (playTimer !== null) {
+        clearTimeout(playTimer);
+        playTimer = null;
+      }
+      updateControls();
+    }
+
+    function scheduleNext() {
+      if (currentStep >= solution.length - 1) {
+        pause();
+        return;
+      }
+
+      playTimer = setTimeout(() => {
+        playTimer = null;
+        currentStep += 1;
+        renderStep();
+        scheduleNext();
+      }, Number(elements.speed.value));
+      updateControls();
+    }
+
+    function play() {
+      if (solution.length > 0 && playTimer === null) {
+        scheduleNext();
+      }
+    }
+
+    function clearResults(initialKey) {
+      solution = [];
+      movedTiles = [];
+      queueSnapshots = new Map();
+      currentStep = 0;
+      renderBoard(initialKey);
+      renderQueue(initialKey);
+      elements.g.textContent = "0";
+      elements.h.textContent = manhattanDistance(initialKey);
+      elements.f.textContent = manhattanDistance(initialKey);
+      elements.currentStep.textContent = "0 / —";
+      elements.tileMoved.textContent = "—";
+      elements.totalMoves.textContent = "—";
+      elements.statesExpanded.textContent = "—";
+      elements.statesDiscovered.textContent = "—";
+    }
+
+    async function solve() {
+      pause();
+      elements.status.className = "status";
+
+      let initial;
+      try {
+        initial = readInputs();
+      } catch (error) {
+        elements.status.className = "status error";
+        elements.status.textContent = error.message;
+        return;
+      }
+
+      const initialKey = initial.join("");
+      clearResults(initialKey);
+
+      if (!isSolvable(initial)) {
+        elements.status.className = "status error";
+        elements.status.textContent = "This configuration is not solvable.";
+        updateControls();
+        return;
+      }
+
+      solving = true;
+      elements.status.textContent = "Searching…";
+      updateControls();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const result = await runAStar(initialKey);
+      if (result === null) {
+        solving = false;
+        elements.status.className = "status error";
+        elements.status.textContent = "No solution was found.";
+        updateControls();
+        return;
+      }
+
+      queueSnapshots = await captureQueueSnapshots(initialKey, result.path);
+      solution = result.path;
+      movedTiles = result.pathMoves;
+      currentStep = 0;
+      solving = false;
+      elements.totalMoves.textContent = solution.length - 1;
+      elements.statesExpanded.textContent = result.expanded.toLocaleString();
+      elements.statesDiscovered.textContent = result.discovered.toLocaleString();
+      renderStep();
+    }
+
+    elements.previous.addEventListener("click", () => {
+      pause();
+      currentStep -= 1;
+      renderStep();
+    });
+
+    elements.next.addEventListener("click", () => {
+      pause();
+      currentStep += 1;
+      renderStep();
+    });
+
+    elements.play.addEventListener("click", play);
+    elements.pause.addEventListener("click", pause);
+
+    elements.reset.addEventListener("click", () => {
+      pause();
+      currentStep = 0;
+      renderStep();
+    });
+
+    elements.speed.addEventListener("input", () => {
+      elements.speedValue.textContent =
+        `${(Number(elements.speed.value) / 1000).toFixed(1)} sec`;
+      if (playTimer !== null) {
+        pause();
+        play();
+      }
+    });
+
+    elements.example.addEventListener("click", () => {
+      pause();
+      setInputs(EXAMPLE);
+      clearResults(EXAMPLE.join(""));
+      elements.status.className = "status";
+      elements.status.textContent = "Example loaded. Select Solve with A*.";
+      updateControls();
+    });
+
+    elements.solve.addEventListener("click", solve);
+
+    createInputs();
+    clearResults(EXAMPLE.join(""));
+    updateControls();
+  </script>
+</body>
+</html>
